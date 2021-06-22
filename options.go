@@ -51,6 +51,7 @@ func (opts *Options) applyOption(out *Options) error {
 	return nil
 }
 
+// GetMigratePath will add the protocol if it is not there assuming that the path is a local file
 func (opts *Options) GetMigratePath() string {
 	if strings.Contains(opts.MigratePath, "://") {
 		return opts.MigratePath

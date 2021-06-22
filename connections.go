@@ -65,24 +65,25 @@ func (dbc *dbConnections) DBX(driverName string, connection string, opts ...Conn
 		err: err,
 	}
 
-	var driver database.Driver
-
-	switch driverName {
-	case postgresSource:
-		driver, err = postgres.WithInstance(db.DB, &postgres.Config{})
-		if err != nil {
-			return nil, fmt.Errorf("postgres instance: %v", err)
-		}
-	case mysqlSource:
-		driver, err = mysql.WithInstance(db.DB, &mysql.Config{})
-		if err != nil {
-			return nil, fmt.Errorf("mysql instance: %v", err)
-		}
-	default:
-		return nil, errors.New("db driver not supported")
-	}
-
+	// Run migrations
 	if cOpts.migratePath != "" {
+		var driver database.Driver
+
+		switch driverName {
+		case postgresSource:
+			driver, err = postgres.WithInstance(db.DB, &postgres.Config{})
+			if err != nil {
+				return nil, fmt.Errorf("postgres instance: %v", err)
+			}
+		case mysqlSource:
+			driver, err = mysql.WithInstance(db.DB, &mysql.Config{})
+			if err != nil {
+				return nil, fmt.Errorf("mysql instance: %v", err)
+			}
+		default:
+			return nil, errors.New("db driver not supported")
+		}
+
 		m, err := migrate.NewWithDatabaseInstance(
 			cOpts.migratePath,
 			driverName, driver)
