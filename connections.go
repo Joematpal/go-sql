@@ -23,6 +23,7 @@ type dbConnections struct {
 	sync.Mutex
 	m map[string]dbConnection
 }
+
 type connectionOptions struct {
 	migratePath string
 }
@@ -86,7 +87,9 @@ func (dbc *dbConnections) DBX(driverName string, connection string, opts ...Conn
 
 		m, err := migrate.NewWithDatabaseInstance(
 			cOpts.migratePath,
-			driverName, driver)
+			driverName,
+			driver,
+		)
 		if err != nil {
 			return nil, fmt.Errorf("migrations instance: %v", err)
 		}
