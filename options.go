@@ -74,7 +74,15 @@ func (opts *Options) DBX() (*sqlx.DB, error) {
 		return nil, err
 	}
 
-	db, err := dbs.DBX(opts.DriverName, connection, withMigratePath(opts.GetMigratePath()))
+	dbOpts := []ConnectOption{}
+
+	if opts.Migrate {
+		mpath := opts.GetMigratePath()
+		fmt.Println("mpath", mpath)
+		dbOpts = append(dbOpts, withMigratePath(mpath))
+	}
+
+	db, err := dbs.DBX(opts.DriverName, connection, dbOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("get sqlx from : %v", err)
 	}

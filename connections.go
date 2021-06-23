@@ -95,7 +95,9 @@ func (dbc *dbConnections) DBX(driverName string, connection string, opts ...Conn
 		}
 
 		if err := m.Up(); err != nil {
-			return nil, fmt.Errorf("migrations up: %v", err)
+			if !errors.Is(err, migrate.ErrNoChange) {
+				return nil, fmt.Errorf("migrations up: %v", err)
+			}
 		}
 	}
 

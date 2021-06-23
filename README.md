@@ -51,7 +51,7 @@ func NewDBFromContext(c *cli.Context) (DB, error)
         // sqlp.WithType(c.String(sqlf.DBType)),
         // sqlp.WithPort(c.String(sqlf.DBPort)),
         // sqlp.WithMigrate(c.Bool(sqlf.Migrate)),
-        // sqlp.MigratePath(c.String(sqlf.MigratePath)),
+        // sqlp.WithMigratePath(c.String(sqlf.MigratePath)),
         }
     )
 	if err != nil {
@@ -59,6 +59,7 @@ func NewDBFromContext(c *cli.Context) (DB, error)
 	}
     return db, nil
 ```
+
 ## Notes:
 ------------------
 ### Migration

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 
+	_ "github.com/golang-migrate/migrate/source/file"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -17,7 +18,9 @@ type DB interface {
 }
 
 func New(in ...Option) (DB, error) {
-	opts := &Options{}
+	opts := &Options{
+		MigratePath: "database/sql",
+	}
 	for _, opt := range in {
 		if err := opt.applyOption(opts); err != nil {
 			return nil, err
