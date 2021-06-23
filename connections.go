@@ -15,17 +15,25 @@ import (
 )
 
 type dbConnection struct {
-	db  *sqlx.DB
-	err error
+	db       *sqlx.DB
+	debugger debugger
+	err      error
+}
+
+func (dbc *dbConnection) Debugf(format string, args ...interface{}) {
+	if dbc.debugger != nil {
+		dbc.debugger.Debugf(format, args)
+	}
 }
 
 type dbConnections struct {
 	sync.Mutex
-	m map[string]dbConnection
+	m map[string]*dbConnection
 }
 
 type connectionOptions struct {
 	migratePath string
+	debugger    debugger
 }
 
 type ConnectOption interface {
@@ -61,10 +69,12 @@ func (dbc *dbConnections) DBX(driverName string, connection string, opts ...Conn
 	db.Mapper = reflectx.NewMapper("json")
 
 	// Add it to the pool so that some other service can reference it
-	dbc.m[connection] = dbConnection{
-		db:  db,
-		err: err,
+	dbConn := &dbConnection{
+		db:       db,
+		debugger: cOpts.debugger,
+		err:      err,
 	}
+	dbc.m[connection] = dbConn
 
 	// Run migrations
 	if cOpts.migratePath != "" {
@@ -98,14 +108,16 @@ func (dbc *dbConnections) DBX(driverName string, connection string, opts ...Conn
 			if !errors.Is(err, migrate.ErrNoChange) {
 				return nil, fmt.Errorf("migrations up: %v", err)
 			}
+			dbConn.Debugf("migrate up: %v", err)
 		}
+		dbConn.Debugf("migrate up: success")
 	}
 
 	return db, err
 }
 
 var dbs = &dbConnections{
-	m: map[string]dbConnection{},
+	m: map[string]*dbConnection{},
 }
 
 func withMigratePath(migratePath string) ConnectOption {
@@ -114,6 +126,15 @@ func withMigratePath(migratePath string) ConnectOption {
 			return errors.New("migrate path cannot be empty")
 		}
 		co.migratePath = migratePath
+		return nil
+	})
+}
+
+func withDebugger(debugger debugger) ConnectOption {
+	return connectOptionApplyFunc(func(co *connectionOptions) error {
+		if debugger != nil {
+			co.debugger = debugger
+		}
 		return nil
 	})
 }

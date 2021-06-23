@@ -18,6 +18,8 @@ type Options struct {
 	Port        string
 	Migrate     bool
 	MigratePath string
+	DBSource    string
+	Debugger    debugger
 }
 
 func (opts *Options) applyOption(out *Options) error {
@@ -48,6 +50,15 @@ func (opts *Options) applyOption(out *Options) error {
 	if opts.MigratePath != "" {
 		out.MigratePath = opts.MigratePath
 	}
+
+	if opts.Debugger != nil {
+		out.Debugger = opts.Debugger
+	}
+
+	if opts.DBSource == "" {
+		out.DBSource = opts.DBSource
+	}
+
 	return nil
 }
 
@@ -78,13 +89,16 @@ func (opts *Options) DBX() (*sqlx.DB, error) {
 
 	if opts.Migrate {
 		mpath := opts.GetMigratePath()
-		fmt.Println("mpath", mpath)
 		dbOpts = append(dbOpts, withMigratePath(mpath))
+	}
+
+	if opts.Debugger != nil {
+		dbOpts = append(dbOpts, withDebugger(opts.Debugger))
 	}
 
 	db, err := dbs.DBX(opts.DriverName, connection, dbOpts...)
 	if err != nil {
-		return nil, fmt.Errorf("get sqlx from : %v", err)
+		return nil, fmt.Errorf("dbconns dbx: %v", err)
 	}
 
 	return db, nil
@@ -165,7 +179,28 @@ func WithMigratePath(migratePath string) Option {
 	})
 }
 
+// WithDBSource ...
+func WithDBSource(dbSource string) Option {
+	return optionApplyFunc(func(opts *Options) error {
+		opts.DBSource = dbSource
+		return nil
+	})
+}
+
+// WithDebugger pass in the debugger the db can use for debug statements
+func WithDebugger(debugger debugger) Option {
+	return optionApplyFunc(func(opts *Options) error {
+		opts.Debugger = debugger
+		return nil
+	})
+}
+
 func (opts *Options) getDataSource(custom string) (string, error) {
+
+	if opts.DBSource != "" {
+		return opts.DBSource, nil
+	}
+
 	switch opts.DriverName {
 	case mysqlSource:
 		return opts.getMysqlDataSource(custom)

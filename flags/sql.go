@@ -15,6 +15,7 @@ var (
 	DBPrivCert  = "db-priv-cert"
 	Migrate     = "migrate"
 	MigratePath = "migrate-path"
+	DBSource    = "db-source"
 )
 
 var DBFlags = []cli.Flag{
@@ -52,5 +53,10 @@ var DBFlags = []cli.Flag{
 		Name:    MigratePath,
 		Value:   "database/sql",
 		EnvVars: FlagNamesToEnv(MigratePath),
+	},
+	&cli.StringFlag{
+		Name:    DBSource,
+		Value:   "database/sql",
+		EnvVars: FlagNamesToEnv(DBSource),
 	},
 }
