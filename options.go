@@ -13,13 +13,14 @@ type Options struct {
 	DB          *sqlx.DB
 	User        string
 	Host        string
-	DBname      string
+	DBName      string
 	Password    string
 	Port        string
 	Migrate     bool
 	MigratePath string
 	DBSource    string
-	Debugger    debugger
+	Debugger    Debugger
+	err         error
 }
 
 func (opts *Options) applyOption(out *Options) error {
@@ -35,8 +36,8 @@ func (opts *Options) applyOption(out *Options) error {
 	if opts.Host != "" {
 		out.Host = opts.Host
 	}
-	if opts.DBname != "" {
-		out.DBname = opts.DBname
+	if opts.DBName != "" {
+		out.DBName = opts.DBName
 	}
 	if opts.Password != "" {
 		out.Password = opts.Password
@@ -62,6 +63,24 @@ func (opts *Options) applyOption(out *Options) error {
 	return nil
 }
 
+func (opts *Options) IsValid() error {
+	// Check if the DBSource is set because that means that the db driver/type is not set
+
+	if opts.DBSource != "" {
+		opts.DriverName = mysqlSource
+		if strings.Contains(opts.DBSource, postgresSource) {
+			opts.DriverName = postgresSource
+		}
+	}
+
+	// Check if there is already and existing connection
+	if err := dbs.GetConnection(opts); err != nil {
+		return fmt.Errorf("dbconns dbx: %v", err)
+	}
+
+	return nil
+}
+
 // GetMigratePath will add the protocol if it is not there assuming that the path is a local file
 func (opts *Options) GetMigratePath() string {
 	if strings.Contains(opts.MigratePath, "://") {
@@ -70,6 +89,7 @@ func (opts *Options) GetMigratePath() string {
 	return fmt.Sprintf("file://%s", opts.MigratePath)
 }
 
+// DBX
 func (opts *Options) DBX() (*sqlx.DB, error) {
 	if opts.DriverName == "" {
 		return nil, errors.New("please provide a driver type")
@@ -78,30 +98,13 @@ func (opts *Options) DBX() (*sqlx.DB, error) {
 	if opts.DB != nil {
 		return opts.DB, nil
 	}
+	return nil, errors.New("db connection not created")
+}
 
-	// TODO: add tls support for the data source
-	connection, err := opts.getDataSource("")
-	if err != nil {
-		return nil, err
-	}
-
-	dbOpts := []ConnectOption{}
-
-	if opts.Migrate {
-		mpath := opts.GetMigratePath()
-		dbOpts = append(dbOpts, withMigratePath(mpath))
-	}
-
+func (opts *Options) Debugf(format string, args ...interface{}) {
 	if opts.Debugger != nil {
-		dbOpts = append(dbOpts, withDebugger(opts.Debugger))
+		opts.Debugger.Debugf(format, args...)
 	}
-
-	db, err := dbs.DBX(opts.DriverName, connection, dbOpts...)
-	if err != nil {
-		return nil, fmt.Errorf("dbconns dbx: %v", err)
-	}
-
-	return db, nil
 }
 
 // Option interface to add values to the opts struct
@@ -150,7 +153,7 @@ func WithPassword(password string) Option {
 // WithDBName pass in the name of the db
 func WithDBName(name string) Option {
 	return optionApplyFunc(func(opts *Options) error {
-		opts.DBname = name
+		opts.DBName = name
 		return nil
 	})
 }
@@ -188,7 +191,7 @@ func WithDBSource(dbSource string) Option {
 }
 
 // WithDebugger pass in the debugger the db can use for debug statements
-func WithDebugger(debugger debugger) Option {
+func WithDebugger(debugger Debugger) Option {
 	return optionApplyFunc(func(opts *Options) error {
 		opts.Debugger = debugger
 		return nil
@@ -239,10 +242,10 @@ func (opts *Options) getMysqlDataSource(custom string) (string, error) {
 	if _, err := sb.WriteString(fmt.Sprintf(":%s)", opts.Port)); err != nil {
 		return sb.String(), err
 	}
-	if opts.DBname == "" {
+	if opts.DBName == "" {
 		return sb.String(), errors.New("db dbname cannot be an empty string")
 	}
-	if _, err := sb.WriteString(fmt.Sprintf("/%s", opts.DBname)); err != nil {
+	if _, err := sb.WriteString(fmt.Sprintf("/%s", opts.DBName)); err != nil {
 		return sb.String(), err
 	}
 	// TODO: Add in the TLS support
@@ -278,10 +281,10 @@ func (opts *Options) getPostgresDataSource(custom string) (string, error) {
 	if _, err := sb.WriteString(fmt.Sprintf(":%s", opts.Port)); err != nil {
 		return sb.String(), err
 	}
-	if opts.DBname == "" {
+	if opts.DBName == "" {
 		return sb.String(), errors.New("db dbname cannot be an empty string")
 	}
-	if _, err := sb.WriteString(fmt.Sprintf("/%s", opts.DBname)); err != nil {
+	if _, err := sb.WriteString(fmt.Sprintf("/%s", opts.DBName)); err != nil {
 		return sb.String(), err
 	}
 

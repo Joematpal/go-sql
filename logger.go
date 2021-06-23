@@ -1,5 +1,5 @@
 package sql
 
-type debugger interface {
+type Debugger interface {
 	Debugf(format string, args ...interface{})
 }

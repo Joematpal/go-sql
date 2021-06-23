@@ -3,7 +3,6 @@ package sql
 import (
 	"fmt"
 	"regexp"
-	"strings"
 
 	_ "github.com/golang-migrate/migrate/source/file"
 	"github.com/jmoiron/sqlx"
@@ -28,14 +27,7 @@ func New(in ...Option) (DB, error) {
 		}
 	}
 
-	// Check if the DBSource is set because that means that the db driver/type is not set
-	if opts.DBSource != "" {
-		opts.DriverName = mysqlSource
-		if strings.Contains(opts.DBSource, postgresSource) {
-			opts.DriverName = postgresSource
-		}
-	}
-	return opts, nil
+	return opts, opts.IsValid()
 }
 
 func ToNamedStatement(dbType, stmt string, names []string) string {
