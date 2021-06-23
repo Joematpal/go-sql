@@ -56,7 +56,7 @@ var DBFlags = []cli.Flag{
 	},
 	&cli.StringFlag{
 		Name:    DBSource,
-		Value:   "database/sql",
+		Value:   "",
 		EnvVars: FlagNamesToEnv(DBSource),
 	},
 }
