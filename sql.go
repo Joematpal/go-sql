@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 
+	_ "github.com/golang-migrate/migrate/source/file"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -17,13 +18,16 @@ type DB interface {
 }
 
 func New(in ...Option) (DB, error) {
-	opts := &Options{}
+	opts := &Options{
+		MigratePath: "database/sql",
+	}
 	for _, opt := range in {
 		if err := opt.applyOption(opts); err != nil {
 			return nil, err
 		}
 	}
-	return opts, nil
+
+	return opts, opts.IsValid()
 }
 
 func ToNamedStatement(dbType, stmt string, names []string) string {

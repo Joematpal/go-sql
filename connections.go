@@ -14,104 +14,81 @@ import (
 	"github.com/jmoiron/sqlx/reflectx"
 )
 
-type dbConnection struct {
-	db  *sqlx.DB
-	err error
+var dbs = &dbConnections{
+	m: map[string]*Options{},
 }
 
 type dbConnections struct {
 	sync.Mutex
-	m map[string]dbConnection
+	m map[string]*Options
 }
 
-type connectionOptions struct {
-	migratePath string
-}
-
-type ConnectOption interface {
-	applyOption(*connectionOptions) error
-}
-
-type connectOptionApplyFunc func(*connectionOptions) error
-
-func (f connectOptionApplyFunc) applyOption(opts *connectionOptions) error {
-	return f(opts)
-}
-
-func (dbc *dbConnections) DBX(driverName string, connection string, opts ...ConnectOption) (*sqlx.DB, error) {
+func (dbc *dbConnections) GetConnection(opts *Options) error {
 	dbc.Lock()
 	defer dbc.Unlock()
 
-	cOpts := &connectionOptions{}
-	for _, opt := range opts {
-		if err := opt.applyOption(cOpts); err != nil {
-			return nil, err
-		}
+	dbSource, err := opts.getDataSource("")
+	if err != nil {
+		return err
 	}
+
+	opts.Debugf("source %s: %s", opts.DriverName, dbSource)
+
 	// Check if the connection exists
-	if val, ok := dbc.m[connection]; ok {
-		return val.db, val.err
+	if val, ok := dbc.m[dbSource]; ok {
+		opts = val
+		return val.err
 	}
 
 	// Try to open a connection if it doesn't exist
-	d, err := sql.Open(driverName, connection)
+	var d *sql.DB
+	d, opts.err = sql.Open(opts.DriverName, dbSource)
 
-	// Convert sql to sqlx
-	db := sqlx.NewDb(d, driverName)
-	db.Mapper = reflectx.NewMapper("json")
-
-	// Add it to the pool so that some other service can reference it
-	dbc.m[connection] = dbConnection{
-		db:  db,
-		err: err,
+	if opts.err == nil {
+		// Convert sql to sqlx
+		opts.DB = sqlx.NewDb(d, opts.DriverName)
+		opts.DB.Mapper = reflectx.NewMapper("json")
 	}
 
+	// Add it to the pool so that some other service can reference it
+	dbc.m[dbSource] = opts
+
 	// Run migrations
-	if cOpts.migratePath != "" {
+	if opts.MigratePath != "" {
 		var driver database.Driver
 
-		switch driverName {
+		switch opts.DriverName {
 		case postgresSource:
-			driver, err = postgres.WithInstance(db.DB, &postgres.Config{})
+			driver, err = postgres.WithInstance(opts.DB.DB, &postgres.Config{})
 			if err != nil {
-				return nil, fmt.Errorf("postgres instance: %v", err)
+				return fmt.Errorf("postgres instance: %v", err)
 			}
 		case mysqlSource:
-			driver, err = mysql.WithInstance(db.DB, &mysql.Config{})
+			driver, err = mysql.WithInstance(opts.DB.DB, &mysql.Config{})
 			if err != nil {
-				return nil, fmt.Errorf("mysql instance: %v", err)
+				return fmt.Errorf("mysql instance: %v", err)
 			}
 		default:
-			return nil, errors.New("db driver not supported")
+			return errors.New("db driver not supported")
 		}
 
 		m, err := migrate.NewWithDatabaseInstance(
-			cOpts.migratePath,
-			driverName,
+			opts.GetMigratePath(),
+			opts.DBName,
 			driver,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("migrations instance: %v", err)
+			return fmt.Errorf("migrations instance: %v", err)
 		}
 
 		if err := m.Up(); err != nil {
-			return nil, fmt.Errorf("migrations up: %v", err)
+			if !errors.Is(err, migrate.ErrNoChange) {
+				return fmt.Errorf("migrations up: %v", err)
+			}
+			opts.Debugf("migrate up: %v", err)
 		}
+		opts.Debugf("migrate up: success")
 	}
 
-	return db, err
-}
-
-var dbs = &dbConnections{
-	m: map[string]dbConnection{},
-}
-
-func withMigratePath(migratePath string) ConnectOption {
-	return connectOptionApplyFunc(func(co *connectionOptions) error {
-		if migratePath == "" {
-			return errors.New("migrate path cannot be empty")
-		}
-		co.migratePath = migratePath
-		return nil
-	})
+	return err
 }
