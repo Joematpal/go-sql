@@ -2,6 +2,7 @@ package table
 
 import (
 	"reflect"
+	"sort"
 	"testing"
 )
 
@@ -63,7 +64,7 @@ func TestTable_OmitColumns(t *testing.T) {
 				name:    tt.fields.name,
 				columns: tt.fields.columns,
 			}
-			if got := tr.OmitColumns(tt.args.omits...); !reflect.DeepEqual(got, tt.want) {
+			if got := tr.OmitColumns(tt.args.omits...); !reflect.DeepEqual(sort.StringSlice(got), sort.StringSlice(tt.want)) {
 				t.Errorf("Table.OmitColumns() = %v, want %v", got, tt.want)
 			}
 		})
@@ -92,20 +93,6 @@ func TestTable_ListColumns(t *testing.T) {
 				},
 			},
 
-			want: []string{"xid", "name"},
-		},
-		{
-			name: "should pass; more args that in columns",
-			fields: fields{
-				name: "test_table",
-				columns: map[string]struct{}{
-					"xid":  {},
-					"name": {},
-					"dob":  {},
-					"pass": {},
-				},
-			},
-
 			want: []string{"xid", "name", "dob", "pass"},
 		},
 	}
@@ -115,7 +102,7 @@ func TestTable_ListColumns(t *testing.T) {
 				name:    tt.fields.name,
 				columns: tt.fields.columns,
 			}
-			if got := tr.ListColumns(); !reflect.DeepEqual(got, tt.want) {
+			if got := tr.ListColumns(); !reflect.DeepEqual(sort.StringSlice(got), sort.StringSlice(tt.want)) {
 				t.Errorf("Table.ListColumns() = %v, want %v", got, tt.want)
 			}
 		})
