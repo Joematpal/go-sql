@@ -1,8 +1,8 @@
-package statement
+package sql
 
 import "testing"
 
-func TestToNamed(t *testing.T) {
+func TestToNamedStatement(t *testing.T) {
 	type args struct {
 		dbType string
 		stmt   string
@@ -34,8 +34,8 @@ func TestToNamed(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ToNamed(tt.args.dbType, tt.args.stmt, tt.args.names); got != tt.want {
-				t.Errorf("ToNamed() = %v, want %v", got, tt.want)
+			if got := ToNamedStatement(tt.args.dbType, tt.args.stmt, tt.args.names); got != tt.want {
+				t.Errorf("ToNamedStatement() = %v, want %v", got, tt.want)
 			}
 		})
 	}
