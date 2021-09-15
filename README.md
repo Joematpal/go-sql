@@ -33,7 +33,7 @@ type DB interface{
 func NewDBFromContext(c *cli.Context) (DB, error)
 	db, err := sqlp.New(
         // This is the Anant way... Very very bad way.
-        // sql.Options{
+        // sql.DB{
         //     Host:        c.String(sqlf.DBHost),
         //     DBname:      c.String(sqlf.DBName),
         //     User:        c.String(sqlf.DBUser),
@@ -47,7 +47,7 @@ func NewDBFromContext(c *cli.Context) (DB, error)
         sqlp.WithDBName(c.String(sqlf.DBName)),
         sqlp.WithUser(c.String(sqlf.DBUser)),
         sqlp.WithPassword(c.String(sqlf.DBPass)),
-        // These one options have defaults, and are not needed it you want to use the defaults
+        // These one DB have defaults, and are not needed it you want to use the defaults
         // sqlp.WithType(c.String(sqlf.DBType)),
         // sqlp.WithPort(c.String(sqlf.DBPort)),
         // sqlp.WithMigrate(c.Bool(sqlf.Migrate)),

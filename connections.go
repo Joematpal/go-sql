@@ -18,15 +18,15 @@ import (
 )
 
 var dbs = &dbConnections{
-	m: map[string]*Options{},
+	m: map[string]*DB{},
 }
 
 type dbConnections struct {
 	sync.Mutex
-	m map[string]*Options
+	m map[string]*DB
 }
 
-func (dbc *dbConnections) GetSQLConnection(opts *Options) error {
+func (dbc *dbConnections) GetSQLConnection(opts *DB) error {
 	dbc.Lock()
 	defer dbc.Unlock()
 
@@ -35,7 +35,7 @@ func (dbc *dbConnections) GetSQLConnection(opts *Options) error {
 		return err
 	}
 
-	opts.Debugf("source %s: %s", opts.DriverName, dbSource)
+	opts.Debugf("source %s: %s", opts.DBSource, dbSource)
 
 	// Check if the connection exists
 	if val, ok := dbc.m[dbSource]; ok {
@@ -45,11 +45,11 @@ func (dbc *dbConnections) GetSQLConnection(opts *Options) error {
 
 	// Try to open a connection if it doesn't exist
 	var d *sql.DB
-	d, opts.err = sql.Open(opts.DriverName, dbSource)
+	d, opts.err = sql.Open(opts.DBSource.String(), dbSource)
 
 	if opts.err == nil {
 		// Convert sql to sqlx
-		opts.sql = sqlx.NewDb(d, opts.DriverName)
+		opts.sql = sqlx.NewDb(d, opts.DBSource.String())
 		opts.sql.Mapper = reflectx.NewMapper("json")
 	}
 
@@ -58,45 +58,14 @@ func (dbc *dbConnections) GetSQLConnection(opts *Options) error {
 
 	// Run migrations
 	if opts.MigratePath != "" {
-		var driver database.Driver
-
-		switch opts.DriverName {
-		case postgresSource:
-			driver, err = postgres.WithInstance(opts.sql.DB, &postgres.Config{})
-			if err != nil {
-				return fmt.Errorf("postgres instance: %v", err)
-			}
-		case mysqlSource:
-			driver, err = mysql.WithInstance(opts.sql.DB, &mysql.Config{})
-			if err != nil {
-				return fmt.Errorf("mysql instance: %v", err)
-			}
-		default:
-			return errors.New("db driver not supported")
+		if err := RunMigrations(opts); err != nil {
+			return err
 		}
-
-		m, err := migrate.NewWithDatabaseInstance(
-			opts.GetMigratePath(),
-			opts.DBName,
-			driver,
-		)
-		if err != nil {
-			return fmt.Errorf("migrations instance: %v", err)
-		}
-
-		if err := m.Up(); err != nil {
-			if !errors.Is(err, migrate.ErrNoChange) {
-				return fmt.Errorf("migrations up: %v", err)
-			}
-			opts.Debugf("migrate up: %v", err)
-		}
-		opts.Debugf("migrate up: success")
 	}
-
 	return err
 }
 
-func (dbc *dbConnections) GetCQLConnection(opts *Options) error {
+func (dbc *dbConnections) GetCQLConnection(opts *DB) error {
 	dbc.Lock()
 	defer dbc.Unlock()
 
@@ -105,7 +74,7 @@ func (dbc *dbConnections) GetCQLConnection(opts *Options) error {
 		return err
 	}
 
-	opts.Debugf("source %s: %s", opts.DriverName, dbSource)
+	opts.Debugf("source %s: %s", opts.DBSource, dbSource)
 
 	// Check if the connection exists
 	if val, ok := dbc.m[dbSource]; ok {
@@ -121,13 +90,31 @@ func (dbc *dbConnections) GetCQLConnection(opts *Options) error {
 		Username: opts.User,
 		Password: opts.Password,
 	}
-
-	cluster.Keyspace = opts.DBName
+	cluster.ProtoVersion = 3
 
 	//FIXME:  add in tls stuff for cql
 
+	// Create keyspace on migration, it should fail if we try to connect to an unmigrated db
+	if opts.Migrate {
+		ts, err := cluster.CreateSession()
+		if err != nil {
+			return err
+		}
+
+		if err := ts.Query(CreateListingsDevKeyspaceStmt(opts.DBName)).Exec(); err != nil {
+			return err
+		}
+	}
+
+	cluster.Keyspace = opts.DBName
+
+	ts, err := cluster.CreateSession()
+	if err != nil {
+		return err
+	}
+
 	// Wrap session on creation, gocqlx session embeds gocql.Session pointer.
-	session, err := gocqlx.WrapSession(cluster.CreateSession())
+	session, err := gocqlx.WrapSession(ts, nil)
 	if err != nil {
 		return err
 	}
@@ -138,45 +125,63 @@ func (dbc *dbConnections) GetCQLConnection(opts *Options) error {
 
 	// Run migrations
 	if opts.MigratePath != "" {
-		var driver database.Driver
-
-		switch opts.DriverName {
-		case postgresSource:
-			driver, err = postgres.WithInstance(opts.sql.DB, &postgres.Config{})
-			if err != nil {
-				return fmt.Errorf("postgres instance: %v", err)
-			}
-		case mysqlSource:
-			driver, err = mysql.WithInstance(opts.sql.DB, &mysql.Config{})
-			if err != nil {
-				return fmt.Errorf("mysql instance: %v", err)
-			}
-		case cqlSource:
-			driver, err = cassandra.WithInstance(opts.cql.Session, &cassandra.Config{})
-			if err != nil {
-				return fmt.Errorf("cql instance: %v", err)
-			}
-		default:
-			return errors.New("db driver not supported")
+		if err := RunMigrations(opts); err != nil {
+			return err
 		}
-
-		m, err := migrate.NewWithDatabaseInstance(
-			opts.GetMigratePath(),
-			opts.DBName,
-			driver,
-		)
-		if err != nil {
-			return fmt.Errorf("migrations instance: %v", err)
-		}
-
-		if err := m.Up(); err != nil {
-			if !errors.Is(err, migrate.ErrNoChange) {
-				return fmt.Errorf("migrations up: %v", err)
-			}
-			opts.Debugf("migrate up: %v", err)
-		}
-		opts.Debugf("migrate up: success")
 	}
 
 	return err
+}
+
+func CreateListingsDevKeyspaceStmt(keyspace string) string {
+	return `CREATE KEYSPACE IF NOT EXISTS ` + keyspace + ` WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : '1'}`
+}
+
+func RunMigrations(opts *DB) error {
+	var driver database.Driver
+	var err error
+
+	switch opts.DBSource {
+	case DBSource_postgres:
+		driver, err = postgres.WithInstance(opts.sql.DB, &postgres.Config{
+			DatabaseName: opts.DBName,
+		})
+		if err != nil {
+			return fmt.Errorf("postgres instance: %v", err)
+		}
+	case DBSource_mysql:
+		driver, err = mysql.WithInstance(opts.sql.DB, &mysql.Config{
+			DatabaseName: opts.DBName,
+		})
+		if err != nil {
+			return fmt.Errorf("mysql instance: %v", err)
+		}
+	case DBSource_cql:
+		driver, err = cassandra.WithInstance(opts.cql.Session, &cassandra.Config{
+			KeyspaceName: opts.DBName,
+		})
+		if err != nil {
+			return fmt.Errorf("cql instance: %v", err)
+		}
+	default:
+		return errors.New("db driver not supported")
+	}
+
+	m, err := migrate.NewWithDatabaseInstance(
+		opts.GetMigratePath(),
+		opts.DBName,
+		driver,
+	)
+	if err != nil {
+		return fmt.Errorf("migrations instance: %v", err)
+	}
+
+	if err := m.Up(); err != nil {
+		if !errors.Is(err, migrate.ErrNoChange) {
+			return fmt.Errorf("migrations up: %v", err)
+		}
+		opts.Debugf("migrate up: %v", err)
+	}
+	opts.Debugf("migrate up: success")
+	return nil
 }

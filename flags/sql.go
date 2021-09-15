@@ -59,4 +59,8 @@ var DBFlags = []cli.Flag{
 		Value:   "",
 		EnvVars: FlagNamesToEnv(DBSource),
 	},
+	&cli.PathFlag{
+		Name:    DBTLS,
+		EnvVars: FlagNamesToEnv(DBTLS),
+	},
 }
