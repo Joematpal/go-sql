@@ -3,12 +3,12 @@ package flags
 import "github.com/urfave/cli/v2"
 
 var (
-	DBType = "db-type"
-	DBUser = "db-user"
-	DBHost = "db-host"
-	DBName = "db-name"
-	DBPass = "db-pass"
-	DBPort = "db-port"
+	DBType  = "db-type"
+	DBUser  = "db-user"
+	DBHosts = "db-hosts"
+	DBName  = "db-name"
+	DBPass  = "db-pass"
+	DBPort  = "db-port"
 	// TODO: we need to find a way to emplement TLS for the db drivers we support
 	DBTLS       = "db-tls"
 	DBPubCert   = "db-pub-cert"
@@ -29,8 +29,8 @@ var DBFlags = []cli.Flag{
 		EnvVars: FlagNamesToEnv(DBUser),
 	},
 	&cli.StringFlag{
-		Name:    DBHost,
-		EnvVars: FlagNamesToEnv(DBHost),
+		Name:    DBHosts,
+		EnvVars: FlagNamesToEnv(DBHosts),
 	},
 	&cli.StringFlag{
 		Name:    DBName,

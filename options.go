@@ -6,13 +6,14 @@ import (
 	"strings"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/scylladb/gocqlx/v2"
 )
 
 type Options struct {
 	DriverName  string
-	DB          *sqlx.DB
+	sql         *sqlx.DB
 	User        string
-	Host        string
+	Hosts       []string
 	DBName      string
 	Password    string
 	Port        string
@@ -21,20 +22,21 @@ type Options struct {
 	DBSource    string
 	Debugger    Debugger
 	err         error
+	cql         *gocqlx.Session
 }
 
 func (opts *Options) applyOption(out *Options) error {
 	if opts.DriverName != "" {
 		out.DriverName = opts.DriverName
 	}
-	if opts.DB != nil {
-		out.DB = opts.DB
+	if opts.sql != nil {
+		out.sql = opts.sql
 	}
 	if opts.User != "" {
 		out.User = opts.User
 	}
-	if opts.Host != "" {
-		out.Host = opts.Host
+	if len(opts.Hosts) != 0 {
+		out.Hosts = append(out.Hosts, opts.Hosts...)
 	}
 	if opts.DBName != "" {
 		out.DBName = opts.DBName
@@ -73,9 +75,17 @@ func (opts *Options) IsValid() error {
 		}
 	}
 
-	// Check if there is already and existing connection
-	if err := dbs.GetConnection(opts); err != nil {
-		return fmt.Errorf("dbconns dbx: %v", err)
+	switch opts.DBSource {
+	case postgresSource, mysqlSource:
+		// Check if there is already and existing connection
+		if err := dbs.GetSQLConnection(opts); err != nil {
+			return fmt.Errorf("sql conn: %v", err)
+		}
+	case cqlSource:
+		// Check if there is already and existing connection
+		if err := dbs.GetCQLConnection(opts); err != nil {
+			return fmt.Errorf("sql conn: %v", err)
+		}
 	}
 
 	return nil
@@ -87,18 +97,6 @@ func (opts *Options) GetMigratePath() string {
 		return opts.MigratePath
 	}
 	return fmt.Sprintf("file://%s", opts.MigratePath)
-}
-
-// DBX
-func (opts *Options) DBX() (*sqlx.DB, error) {
-	if opts.DriverName == "" {
-		return nil, errors.New("please provide a driver type")
-	}
-
-	if opts.DB != nil {
-		return opts.DB, nil
-	}
-	return nil, errors.New("db connection not created")
 }
 
 func (opts *Options) Debugf(format string, args ...interface{}) {
@@ -121,7 +119,14 @@ func (f optionApplyFunc) applyOption(opts *Options) error {
 // WithHost pass in the ip or fqdn of where the db is hosted
 func WithHost(host string) Option {
 	return optionApplyFunc(func(opts *Options) error {
-		opts.Host = host
+		opts.Hosts = append(opts.Hosts, host)
+		return nil
+	})
+}
+
+func WithHosts(hosts ...string) Option {
+	return optionApplyFunc(func(opts *Options) error {
+		opts.Hosts = append(opts.Hosts, hosts...)
 		return nil
 	})
 }
@@ -199,7 +204,6 @@ func WithDebugger(debugger Debugger) Option {
 }
 
 func (opts *Options) getDataSource(custom string) (string, error) {
-
 	if opts.DBSource != "" {
 		return opts.DBSource, nil
 	}
@@ -210,7 +214,7 @@ func (opts *Options) getDataSource(custom string) (string, error) {
 	case postgresSource:
 		return opts.getPostgresDataSource(custom)
 	default:
-		return "", errors.New("only mysql and postgres are supported")
+		return "", errors.New("only mysql, postgres and cql are supported")
 	}
 }
 
@@ -230,10 +234,10 @@ func (opts *Options) getMysqlDataSource(custom string) (string, error) {
 	if _, err := sb.WriteString(fmt.Sprintf(":%s@", opts.Password)); err != nil {
 		return sb.String(), err
 	}
-	if opts.Host == "" {
+	if len(opts.Hosts) == 0 {
 		return sb.String(), errors.New("db host cannot be an empty string")
 	}
-	if _, err := sb.WriteString(fmt.Sprintf("tcp(%s", opts.Host)); err != nil {
+	if _, err := sb.WriteString(fmt.Sprintf("tcp(%s", opts.Hosts[0])); err != nil {
 		return sb.String(), err
 	}
 	if opts.Port == "" {
@@ -269,10 +273,10 @@ func (opts *Options) getPostgresDataSource(custom string) (string, error) {
 	if _, err := sb.WriteString(fmt.Sprintf(":%s@", opts.Password)); err != nil {
 		return sb.String(), err
 	}
-	if opts.Host == "" {
+	if len(opts.Hosts) == 0 {
 		return sb.String(), errors.New("db host cannot be an empty string")
 	}
-	if _, err := sb.WriteString(opts.Host); err != nil {
+	if _, err := sb.WriteString(opts.Hosts[0]); err != nil {
 		return sb.String(), err
 	}
 	if opts.Port == "" {
