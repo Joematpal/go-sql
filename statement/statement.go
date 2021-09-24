@@ -5,12 +5,12 @@ import (
 	"regexp"
 )
 
-func ToNamed(dbType, stmt string, names []string) string {
+func ToNamed(dbSource string, stmt string, names []string) string {
 	var r *regexp.Regexp
-	switch dbType {
+	switch dbSource {
 	case "postgres":
 		r = regexp.MustCompile(`\$\d`)
-	case "mysql":
+	case "mysql", "cql":
 		r = regexp.MustCompile(`\?`)
 	}
 	var i int
@@ -18,4 +18,12 @@ func ToNamed(dbType, stmt string, names []string) string {
 		defer func() { i++ }()
 		return fmt.Sprintf(":%s", names[i])
 	})
+}
+
+func FromQueryBuilder(dbSource string, stmt string) string {
+	if dbSource == "postgres" {
+		return regexp.MustCompile(`\$\d`).
+			ReplaceAllString(stmt, "?")
+	}
+	return stmt
 }

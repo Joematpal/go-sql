@@ -61,8 +61,8 @@ func TestTable_OmitColumns(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tr := Table{
-				name:    tt.fields.name,
-				columns: tt.fields.columns,
+				Name:    tt.fields.name,
+				Columns: tt.fields.columns,
 			}
 			if got := tr.OmitColumns(tt.args.omits...); !reflect.DeepEqual(sort.StringSlice(got), sort.StringSlice(tt.want)) {
 				t.Errorf("Table.OmitColumns() = %v, want %v", got, tt.want)
@@ -99,8 +99,8 @@ func TestTable_ListColumns(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tr := Table{
-				name:    tt.fields.name,
-				columns: tt.fields.columns,
+				Name:    tt.fields.name,
+				Columns: tt.fields.columns,
 			}
 			if got := tr.ListColumns(); !reflect.DeepEqual(sort.StringSlice(got), sort.StringSlice(tt.want)) {
 				t.Errorf("Table.ListColumns() = %v, want %v", got, tt.want)

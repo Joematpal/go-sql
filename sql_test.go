@@ -3,10 +3,26 @@ package sql
 import (
 	"testing"
 
+	"github.com/digital-dream-labs/go-sql/table"
+	test_users "github.com/digital-dream-labs/go-sql/test/users"
 	_ "github.com/golang-migrate/migrate/source/file"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/iancoleman/strcase"
+	cqlreflectx "github.com/scylladb/go-reflectx"
+	"github.com/scylladb/gocqlx/v2/qb"
 )
+
+var testUserTable = table.New("users", map[string]struct{}{
+	"userId":    {},
+	"username":  {},
+	"email":     {},
+	"verified":  {},
+	"createdAt": {},
+	"updatedAt": {},
+	"createdBy": {},
+	"updatedBy": {},
+})
 
 func TestToNamedStatement(t *testing.T) {
 	type args struct {
@@ -57,55 +73,404 @@ func TestNew(t *testing.T) {
 		want    *DB
 		wantErr bool
 	}{
+		// {
+		// 	name: "should pass; cql connection with migrate",
+		// 	args: args{
+		// 		in: []Option{
+		// 			WithType("cql"),
+		// 			WithDBName("test_db"),
+		// 			WithHost("127.0.0.1"),
+		// 			WithUser("cassandra"),
+		// 			WithPassword("cassandra"),
+		// 			WithPort("9042"),
+		// 			WithMigrate(true),
+		// 			WithMigratePath("database/cql"),
+		// 		},
+		// 	},
+		// 	want: &DB{
+		// 		DBSource:    DBSource_cql,
+		// 		User:        "cassandra",
+		// 		Password:    "cassandra",
+		// 		Port:        "9042",
+		// 		DBName:      "test_db",
+		// 		Hosts:       []string{"127.0.0.1"},
+		// 		Migrate:     true,
+		// 		MigratePath: "database/cql",
+		// 	},
+		// },
+		// {
+		// 	name: "should pass; cql connection without migrate",
+		// 	args: args{
+		// 		in: []Option{
+		// 			WithType("cql"),
+		// 			WithDBName("test_db"),
+		// 			WithHost("127.0.0.1"),
+		// 			WithUser("cassandra"),
+		// 			WithPassword("cassandra"),
+		// 			WithPort("9042"),
+		// 		},
+		// 	},
+		// 	want: &DB{
+		// 		DBSource:    DBSource_cql,
+		// 		User:        "cassandra",
+		// 		Password:    "cassandra",
+		// 		Port:        "9042",
+		// 		DBName:      "test_db",
+		// 		Hosts:       []string{"127.0.0.1"},
+		// 		MigratePath: "database/sql",
+		// 	},
+		// },
+		// {
+		// 	name: "should pass; postgres connection with migrate",
+		// 	args: args{
+		// 		in: []Option{
+		// 			WithType("postgres"),
+		// 			WithDBName("test_db"),
+		// 			WithHost("127.0.0.1"),
+		// 			WithUser("postgres"),
+		// 			WithPassword("postgres"),
+		// 			WithPort("5432"),
+		// 			WithMigrate(true),
+		// WithMigratePath("database/psql"),
+		// 		},
+		// 	},
+		// 	want: &DB{
+		// 		DBSource:    DBSource_postgres,
+		// 		User:        "postgres",
+		// 		Password:    "postgres",
+		// 		Port:        "5432",
+		// 		DBName:      "test_db",
+		// 		Hosts:       []string{"127.0.0.1"},
+		// 		Migrate:     true,
+		// 		MigratePath: "database/psql",
+		// 	},
+		// },
+		// {
+		// 	name: "should pass; postgres connection without migrate",
+		// 	args: args{
+		// 		in: []Option{
+		// 			WithType("postgres"),
+		// 			WithDBName("test_db"),
+		// 			WithHost("127.0.0.1"),
+		// 			WithUser("postgres"),
+		// 			WithPassword("postgres"),
+		// 			WithPort("5432"),
+		// 		},
+		// 	},
+		// 	want: &DB{
+		// 		DBSource:    DBSource_postgres,
+		// 		User:        "postgres",
+		// 		Password:    "postgres",
+		// 		Port:        "5432",
+		// 		DBName:      "test_db",
+		// 		Hosts:       []string{"127.0.0.1"},
+		// 		MigratePath: "database/sql",
+		// 	},
+		// },
 		{
-			name: "cql connection with migrate false",
+			name: "should pass; mysql connection with migrate",
 			args: args{
 				in: []Option{
-					WithType("cql"),
+					WithType("mysql"),
 					WithDBName("test_db"),
 					WithHost("127.0.0.1"),
-					WithUser("cassandra"),
-					WithPassword("cassandra"),
-					WithPort("9042"),
+					WithUser("mysql"),
+					WithPassword("mysql"),
+					WithPort("3306"),
 					WithMigrate(true),
-					WithMigratePath("database/cql"),
 				},
 			},
 			want: &DB{
-				DBSource:    DBSource_cql,
-				User:        "cassandra",
-				Password:    "cassandra",
-				Port:        "9042",
+				DBSource:    DBSource_mysql,
+				User:        "mysql",
+				Password:    "mysql",
+				Port:        "3306",
 				DBName:      "test_db",
 				Hosts:       []string{"127.0.0.1"},
 				Migrate:     true,
-				MigratePath: "database/cql",
+				MigratePath: "database/sql",
+			},
+		},
+		{
+			name: "should pass; mysql connection without migrate",
+			args: args{
+				in: []Option{
+					WithType("mysql"),
+					WithDBName("test_db"),
+					WithHost("127.0.0.1"),
+					WithUser("mysql"),
+					WithPassword("mysql"),
+					WithPort("3306"),
+				},
+			},
+			want: &DB{
+				DBSource:    DBSource_mysql,
+				User:        "mysql",
+				Password:    "mysql",
+				Port:        "3306",
+				DBName:      "test_db",
+				Hosts:       []string{"127.0.0.1"},
+				MigratePath: "database/sql",
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+
 			got, err := New(tt.args.in...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("New() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+			src, _ := got.getDataSource()
+			deleteDB(src)
+
+			defer func() {
+				if err := got.DropTables("schema_migrations"); err != nil {
+					t.Fatalf("flush tables: %v", err)
+				}
+				// if err := got.FlushAll(); err != nil {
+				// 	t.Fatalf("flush tables: %v", err)
+				// }
+			}()
+
 			opts := []cmp.Option{cmpopts.IgnoreUnexported(DB{}), cmpopts.IgnoreFields(DB{}, "sql", "cql")}
 			if !cmp.Equal(got, tt.want, opts...) {
 				t.Error(cmp.Diff(got, tt.want, opts...))
 			}
-			if tt.want.DBSource == DBSource_cql {
-				session, err := got.CQLX()
-				if err != nil {
-					t.Fatalf("cqlx: %v", err)
-				}
-				if err := session.ExecStmt("SELECT cql_version FROM system.local"); err != nil {
-					t.Fatalf("ping: %v", err)
-				}
-			} else {
-
+			if err := got.Ping(); err != nil {
+				t.Fatalf("ping: %v", err)
 			}
-
 		})
 	}
+}
+
+func TestDB_Select(t *testing.T) {
+
+	type args struct {
+		dst   *[]*test_users.User
+		stmt  string
+		names []string
+		args  interface{}
+	}
+	tests := []struct {
+		name    string
+		fields  []Option
+		args    args
+		want    []*test_users.User
+		wantErr bool
+	}{
+		// {
+		// 	name: "should pass; mysql connection with migrate",
+		// 	fields: []Option{
+		// 		WithType("mysql"),
+		// 		WithDBName("test_db"),
+		// 		WithHost("127.0.0.1"),
+		// 		WithUser("mysql"),
+		// 		WithPassword("mysql"),
+		// 		WithPort("3306"),
+		// 		WithMigrate(true),
+		// 	},
+		// 	args: args{
+		// 		dst: &[]*test_users.User{},
+		// 		args: map[string]interface{}{
+		// 			"userId": "test_1",
+		// 		},
+		// 	},
+		// 	want: []*test_users.User{
+		// 		{
+		// 			UserID:   "test_1",
+		// 			Username: "test_username_1",
+		// 			Email:    "test_email_1",
+		// 			Verified: true,
+		// 		},
+		// 	},
+		// },
+		// {
+		// 	name: "should pass; mysql connection without migrate",
+		// 	fields: []Option{
+		// 		WithType("mysql"),
+		// 		WithDBName("test_db"),
+		// 		WithHost("127.0.0.1"),
+		// 		WithUser("mysql"),
+		// 		WithPassword("mysql"),
+		// 		WithPort("3306"),
+		// 	},
+		// 	args: args{
+		// 		dst: &[]*test_users.User{},
+		// 		args: map[string]interface{}{
+		// 			"userId": "test_2",
+		// 		},
+		// 	},
+		// 	want: []*test_users.User{
+		// 		{
+		// 			UserID:   "test_2",
+		// 			Username: "test_username_2",
+		// 			Email:    "test_email_2",
+		// 			Verified: true,
+		// 		},
+		// 	},
+		// },
+		// POSTGRES
+		{
+			name: "should pass; postgres connection with migrate",
+			fields: []Option{
+				WithType("postgres"),
+				WithDBName("test_db"),
+				WithHost("127.0.0.1"),
+				WithUser("postgres"),
+				WithPassword("postgres"),
+				WithPort("5432"),
+				WithMigrate(true),
+				WithMigratePath("database/psql"),
+			},
+			args: args{
+				dst: &[]*test_users.User{},
+				args: map[string]interface{}{
+					"user_id": "c52hsocs70r9j6qad7jg",
+				},
+			},
+			want: []*test_users.User{
+				{
+					UserID:   "c52hsocs70r9j6qad7jg",
+					Username: "test_username_1",
+					Email:    "test_email_1",
+					Verified: true,
+				},
+			},
+		},
+		{
+			name: "should pass; postgres connection without migrate",
+			fields: []Option{
+				WithType("postgres"),
+				WithDBName("test_db"),
+				WithHost("127.0.0.1"),
+				WithUser("postgres"),
+				WithPassword("postgres"),
+				WithPort("5432"),
+			},
+			args: args{
+				dst: &[]*test_users.User{},
+				args: map[string]interface{}{
+					"user_id": "c52hsocs70r9j6qad7jx",
+				},
+			},
+			want: []*test_users.User{
+				{
+					UserID:   "c52hsocs70r9j6qad7jx",
+					Username: "test_username_2",
+					Email:    "test_email_2",
+					Verified: true,
+				},
+			},
+		},
+		// // MYSQL
+		{
+			name: "should pass; mysql connection with migrate",
+			fields: []Option{
+				WithType("mysql"),
+				WithDBName("test_db"),
+				WithHost("127.0.0.1"),
+				WithUser("mysql"),
+				WithPassword("mysql"),
+				WithPort("3306"),
+				WithMigrate(true),
+				WithMapFunc(strcase.ToLowerCamel),
+				WithTagMapFunc(strcase.ToLowerCamel),
+			},
+			args: args{
+				dst: &[]*test_users.User{},
+				args: map[string]interface{}{
+					"userId": "c52hsocs70r9j6qad7jg",
+				},
+			},
+			want: []*test_users.User{
+				{
+					UserID:   "c52hsocs70r9j6qad7jg",
+					Username: "test_username_1",
+					Email:    "test_email_1",
+					Verified: true,
+				},
+			},
+		},
+		{
+			name: "should pass; mysql connection without migrate",
+			fields: []Option{
+				WithType("mysql"),
+				WithDBName("test_db"),
+				WithHost("127.0.0.1"),
+				WithUser("mysql"),
+				WithPassword("mysql"),
+				WithPort("3306"),
+				WithMapFunc(strcase.ToLowerCamel),
+				WithTagMapFunc(strcase.ToLowerCamel),
+			},
+			args: args{
+				dst: &[]*test_users.User{},
+				args: map[string]interface{}{
+					"userId": "c52hsocs70r9j6qad7jx",
+				},
+			},
+			want: []*test_users.User{
+				{
+					UserID:   "c52hsocs70r9j6qad7jx",
+					Username: "test_username_2",
+					Email:    "test_email_2",
+					Verified: true,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			o, err := New(tt.fields...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			columns := testUserTable.ListColumns()
+			if o.DBSource == DBSource_postgres {
+				columns = MapColumns(testUserTable.ListColumns(), cqlreflectx.CamelToSnakeASCII)
+			}
+
+			stmt, names := qb.Insert(testUserTable.Name).Columns(columns...).ToCql()
+			for _, want := range tt.want {
+				if err := o.Exec(stmt, names, want); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			if tt.args.stmt == "" {
+				userId := "userId"
+				if o.DBSource == DBSource_postgres {
+					userId = "user_id"
+				}
+				tt.args.stmt, tt.args.names = qb.Select(testUserTable.Name).Columns(columns...).Where(qb.Eq(userId)).ToCql()
+			}
+
+			if err := o.Select(tt.args.dst, tt.args.stmt, tt.args.names, tt.args.args); (err != nil) != tt.wantErr {
+				t.Errorf("DB.Select() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !cmp.Equal(tt.want, *tt.args.dst) {
+				t.Fatalf(cmp.Diff(tt.want, *tt.args.dst))
+			}
+		})
+		t.Cleanup(func() {
+			for _, tt := range tests {
+				o, err := New(tt.fields...)
+				if err != nil {
+					t.Fatal(err)
+				}
+				o.DropTables("users", "schema_migrations")
+			}
+		})
+	}
+}
+
+func MapColumns(columns []string, mapper func(string) string) []string {
+	out := make([]string, len(columns))
+	for i := range columns {
+		out[i] = mapper(columns[i])
+	}
+	return out
 }

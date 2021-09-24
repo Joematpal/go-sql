@@ -1,0 +1,60 @@
+version: '3.7'
+services:
+  scylla:
+    container_name: scylla
+    image: scylladb/scylla:latest
+    command:
+      - --memory 4G
+      - --cpuset 0-2,4
+      - --authenticator=PasswordAuthenticator
+    ports:
+      - "7199:7199"
+      - "7000:7000"
+      - "7001:7001"
+      - "9160:9160"
+      - "9042:9042"
+    volumes: 
+      - scylladb:/var/lib/scylla
+
+  postgres:
+    container_name: postgres
+    image: postgres:latest
+    environment: 
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: test_db
+    ports:
+      - "5432:5432"
+    volumes: 
+      - postgresdb:/var/lib/postgres/data
+
+  mysql:
+    container_name: mysql
+    image: mysql:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: mysql
+      MYSQL_DATABASE: test_db
+      MYSQL_USER: mysql
+      MYSQL_PASSWORD: mysql
+    ports:
+      - "3306:3306"
+    volumes: 
+      - mysqldb:/var/lib/mysql
+
+  cassandra:
+    image: bitnami/cassandra:latest
+    container_name: cassandra
+    ports:
+      - "7199:7199"
+      - "7000:7000"
+      - "7001:7001"
+      - "9160:9160"
+      - "9042:9042"
+    volumes: 
+      - cassandradb:/bitnami
+
+volumes:
+  postgresdb: 
+  cassandradb:
+  scylladb:
+  mysqldb:
