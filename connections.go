@@ -126,7 +126,7 @@ func (dbc *dbConnections) GetCQLConnection(o *DB) error {
 
 	// Wrap session on creation, gocqlx session embeds gocql.Session pointer.
 	session := gocqlx.NewSession(ts)
-	session.Mapper = cqlreflectx.NewMapperTagFunc("json", preMapFunc(o.mapFunc), o.tagMapFunc)
+	session.Mapper = cqlreflectx.NewMapperTagFunc("json", preMapFunc(o.mapFunc), preMapFunc(o.tagMapFunc))
 	o.cql = &session
 
 	// Add it to the pool so that some other service can reference it
@@ -200,7 +200,6 @@ func preMapFunc(f func(string) string) func(string) string {
 		ss := strings.Split(s, ",")
 		out := f(ss[0])
 
-		fmt.Println("PREMAPFUNC", out)
 		return out
 	}
 }

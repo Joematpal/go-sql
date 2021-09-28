@@ -3,12 +3,11 @@ package sql
 import (
 	"testing"
 
-	"github.com/digital-dream-labs/go-sql/table"
-	test_users "github.com/digital-dream-labs/go-sql/test/users"
+	"github.com/digital-dream-labs/go-sql/v2/table"
+	test_users "github.com/digital-dream-labs/go-sql/v2/test/users"
 	_ "github.com/golang-migrate/migrate/source/file"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/iancoleman/strcase"
 	cqlreflectx "github.com/scylladb/go-reflectx"
 	"github.com/scylladb/gocqlx/v2/qb"
 )
@@ -18,6 +17,16 @@ var testUserTable = table.New("users", map[string]struct{}{
 	"username":  {},
 	"email":     {},
 	"verified":  {},
+	"createdAt": {},
+	"updatedAt": {},
+	"createdBy": {},
+	"updatedBy": {},
+})
+
+var testUserSettingsTable = table.New("user_settings", map[string]struct{}{
+	"userId":    {},
+	"metadata":  {},
+	"scope":     {},
 	"createdAt": {},
 	"updatedAt": {},
 	"createdBy": {},
@@ -178,6 +187,7 @@ func TestNew(t *testing.T) {
 					WithPassword("mysql"),
 					WithPort("3306"),
 					WithMigrate(true),
+					WithMigratePath("database/mysql"),
 				},
 			},
 			want: &DB{
@@ -188,7 +198,7 @@ func TestNew(t *testing.T) {
 				DBName:      "test_db",
 				Hosts:       []string{"127.0.0.1"},
 				Migrate:     true,
-				MigratePath: "database/sql",
+				MigratePath: "database/mysql",
 			},
 		},
 		{
@@ -245,73 +255,80 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestDB_Select(t *testing.T) {
+func TestDB_SelectFromMap(t *testing.T) {
 
 	type args struct {
 		dst   *[]*test_users.User
 		stmt  string
 		names []string
-		args  interface{}
+		args  map[string]interface{}
 	}
 	tests := []struct {
-		name    string
-		fields  []Option
-		args    args
-		want    []*test_users.User
-		wantErr bool
+		name             string
+		fields           []Option
+		args             args
+		want             []*test_users.User
+		camelCaseColumns bool
+		wantErr          bool
 	}{
-		// {
-		// 	name: "should pass; mysql connection with migrate",
-		// 	fields: []Option{
-		// 		WithType("mysql"),
-		// 		WithDBName("test_db"),
-		// 		WithHost("127.0.0.1"),
-		// 		WithUser("mysql"),
-		// 		WithPassword("mysql"),
-		// 		WithPort("3306"),
-		// 		WithMigrate(true),
-		// 	},
-		// 	args: args{
-		// 		dst: &[]*test_users.User{},
-		// 		args: map[string]interface{}{
-		// 			"userId": "test_1",
-		// 		},
-		// 	},
-		// 	want: []*test_users.User{
-		// 		{
-		// 			UserID:   "test_1",
-		// 			Username: "test_username_1",
-		// 			Email:    "test_email_1",
-		// 			Verified: true,
-		// 		},
-		// 	},
-		// },
-		// {
-		// 	name: "should pass; mysql connection without migrate",
-		// 	fields: []Option{
-		// 		WithType("mysql"),
-		// 		WithDBName("test_db"),
-		// 		WithHost("127.0.0.1"),
-		// 		WithUser("mysql"),
-		// 		WithPassword("mysql"),
-		// 		WithPort("3306"),
-		// 	},
-		// 	args: args{
-		// 		dst: &[]*test_users.User{},
-		// 		args: map[string]interface{}{
-		// 			"userId": "test_2",
-		// 		},
-		// 	},
-		// 	want: []*test_users.User{
-		// 		{
-		// 			UserID:   "test_2",
-		// 			Username: "test_username_2",
-		// 			Email:    "test_email_2",
-		// 			Verified: true,
-		// 		},
-		// 	},
-		// },
-		// POSTGRES
+		//
+		//// CASSANDRA
+		//
+		{
+			name: "should pass; cassandra connection with migrate",
+			fields: []Option{
+				WithType("cql"),
+				WithDBName("test_db"),
+				WithHosts("127.0.0.1"),
+				WithUser("cassandra"),
+				WithPassword("cassandra"),
+				WithPort("9042"),
+				WithMigrate(true),
+				WithMigratePath("database/cql"),
+			},
+			args: args{
+				dst: &[]*test_users.User{},
+				args: map[string]interface{}{
+					"user_id": "test_1",
+				},
+			},
+			want: []*test_users.User{
+				{
+					UserID:   "test_1",
+					Username: "test_username_1",
+					Email:    "test_email_1",
+					Verified: true,
+				},
+			},
+		},
+		{
+			name: "should pass; cassandra connection without migrate",
+			fields: []Option{
+				WithType("cql"),
+				WithDBName("test_db"),
+				WithHost("127.0.0.1"),
+				WithUser("cassandra"),
+				WithPassword("cassandra"),
+				WithPort("9042"),
+			},
+			args: args{
+				dst: &[]*test_users.User{},
+				args: map[string]interface{}{
+					"user_id": "test_2",
+				},
+			},
+			want: []*test_users.User{
+				{
+					UserID:   "test_2",
+					Username: "test_username_2",
+					Email:    "test_email_2",
+					Verified: true,
+				},
+			},
+		},
+		//
+		//// POSTGRES
+		//
 		{
 			name: "should pass; postgres connection with migrate",
 			fields: []Option{
@@ -364,7 +381,9 @@ func TestDB_Select(t *testing.T) {
 				},
 			},
 		},
-		// // MYSQL
+		//
+		//// MYSQL
+		//
 		{
 			name: "should pass; mysql connection with migrate",
 			fields: []Option{
@@ -375,13 +394,12 @@ func TestDB_Select(t *testing.T) {
 				WithPassword("mysql"),
 				WithPort("3306"),
 				WithMigrate(true),
-				WithMapFunc(strcase.ToLowerCamel),
-				WithTagMapFunc(strcase.ToLowerCamel),
+				WithMigratePath("database/mysql"),
 			},
 			args: args{
 				dst: &[]*test_users.User{},
 				args: map[string]interface{}{
-					"userId": "c52hsocs70r9j6qad7jg",
+					"user_id": "c52hsocs70r9j6qad7jg",
 				},
 			},
 			want: []*test_users.User{
@@ -402,13 +420,11 @@ func TestDB_Select(t *testing.T) {
 				WithUser("mysql"),
 				WithPassword("mysql"),
 				WithPort("3306"),
-				WithMapFunc(strcase.ToLowerCamel),
-				WithTagMapFunc(strcase.ToLowerCamel),
 			},
 			args: args{
 				dst: &[]*test_users.User{},
 				args: map[string]interface{}{
-					"userId": "c52hsocs70r9j6qad7jx",
+					"user_id": "c52hsocs70r9j6qad7jx",
 				},
 			},
 			want: []*test_users.User{
@@ -428,26 +444,26 @@ func TestDB_Select(t *testing.T) {
 				t.Fatal(err)
 			}
 			columns := testUserTable.ListColumns()
-			if o.DBSource == DBSource_postgres {
+			if !tt.camelCaseColumns {
 				columns = MapColumns(testUserTable.ListColumns(), cqlreflectx.CamelToSnakeASCII)
 			}
 
 			stmt, names := qb.Insert(testUserTable.Name).Columns(columns...).ToCql()
 			for _, want := range tt.want {
 				if err := o.Exec(stmt, names, want); err != nil {
-					t.Fatal(err)
+					t.Fatalf("test insert: %v", err)
 				}
 			}
 
 			if tt.args.stmt == "" {
 				userId := "userId"
-				if o.DBSource == DBSource_postgres {
+				if !tt.camelCaseColumns {
 					userId = "user_id"
 				}
 				tt.args.stmt, tt.args.names = qb.Select(testUserTable.Name).Columns(columns...).Where(qb.Eq(userId)).ToCql()
 			}
 
-			if err := o.Select(tt.args.dst, tt.args.stmt, tt.args.names, tt.args.args); (err != nil) != tt.wantErr {
+			if err := o.SelectFromMap(tt.args.dst, tt.args.stmt, tt.args.names, tt.args.args); (err != nil) != tt.wantErr {
 				t.Errorf("DB.Select() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
@@ -473,4 +489,96 @@ func MapColumns(columns []string, mapper func(string) string) []string {
 		out[i] = mapper(columns[i])
 	}
 	return out
+}
+
+func TestDB_Select(t *testing.T) {
+	type Req struct {
+		UserID string `json:"user_id"`
+	}
+	type args struct {
+		dst   *[]*test_users.UserSettings
+		stmt  string
+		names []string
+		args  Req
+	}
+
+	tests := []struct {
+		name             string
+		fields           []Option
+		args             args
+		camelCaseColumns bool
+		want             []*test_users.UserSettings
+		wantErr          bool
+	}{
+		{
+			name: "should pass; cql",
+			fields: []Option{
+				WithType("cql"),
+				WithDBName("test_db"),
+				WithHosts("127.0.0.1"),
+				WithUser("cassandra"),
+				WithPassword("cassandra"),
+				WithPort("9042"),
+				WithMigrate(true),
+				WithMigratePath("database/cql"),
+			},
+			args: args{
+				dst:  &[]*test_users.UserSettings{},
+				args: Req{UserID: "test_user_44"},
+			},
+			want: []*test_users.UserSettings{
+				{
+					UserId: "test_user_44",
+					Scope:  &test_users.Scope{Domain: "TEST_DOMAIN", Operation: test_users.ScopeOperation_Read},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			o, err := New(tt.fields...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			columns := testUserSettingsTable.ListColumns()
+			if !tt.camelCaseColumns {
+				columns = MapColumns(testUserSettingsTable.ListColumns(), cqlreflectx.CamelToSnakeASCII)
+			}
+
+			stmt, names := qb.Insert(testUserSettingsTable.Name).Columns(columns...).ToCql()
+
+			for _, want := range tt.want {
+				if err := o.Exec(stmt, names, want); err != nil {
+					t.Fatalf("exec: %v", err)
+				}
+			}
+
+			if tt.args.stmt == "" {
+				userId := "userId"
+				if !tt.camelCaseColumns {
+					userId = "user_id"
+				}
+				tt.args.stmt, tt.args.names = qb.Select(testUserSettingsTable.Name).Columns(columns...).Where(qb.Eq(userId)).ToCql()
+			}
+
+			if err := o.Select(tt.args.dst, tt.args.stmt, tt.args.names, tt.args.args); (err != nil) != tt.wantErr {
+				t.Fatalf("DB.Select() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !cmp.Equal(tt.want, *tt.args.dst) {
+				t.Fatalf(cmp.Diff(tt.want, *tt.args.dst))
+			}
+
+		})
+
+		t.Cleanup(func() {
+			for _, tt := range tests {
+				o, err := New(tt.fields...)
+				if err != nil {
+					t.Fatal(err)
+				}
+				o.DropTables("user_settings", "schema_migrations")
+			}
+		})
+	}
 }

@@ -64,3 +64,7 @@ func NewDBFromContext(c *cli.Context) (DB, error)
 ------------------
 ### Migration
 When a DBX() interface is called it will pull from a list of connections. This list of connections is create for testing purposes. It helps speed up testing by not create unnecessary db connections. So when using it from a testing perspective don't ever send "different" migrations paths because the subsequent New() calls will return an already existing connection.
+
+```
+docker-compose -f ./sidecars/docker-compose.yaml up postgres mysql cassandra
+```

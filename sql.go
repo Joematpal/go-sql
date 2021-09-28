@@ -6,9 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"regexp"
 
-	"github.com/digital-dream-labs/go-sql/statement"
 	"github.com/gocql/gocql"
 	_ "github.com/golang-migrate/migrate/source/file"
 	"github.com/jmoiron/sqlx"
@@ -60,21 +58,6 @@ func New(in ...Option) (*DB, error) {
 	return opts, opts.IsValid()
 }
 
-func ToNamedStatement(dbType DBSource, stmt string, names []string) string {
-	var r *regexp.Regexp
-	switch dbType {
-	case DBSource_postgres:
-		r = regexp.MustCompile(`\?|(\$\d)`)
-	case DBSource_mysql:
-		r = regexp.MustCompile(`\?|(\$\d)`)
-	}
-	var i int
-	return r.ReplaceAllStringFunc(stmt, func(s string) string {
-		defer func() { i++ }()
-		return fmt.Sprintf(":%s", names[i])
-	})
-}
-
 func (o *DB) SQLX() (*sqlx.DB, error) {
 	switch o.DBSource {
 	case DBSource_mysql, DBSource_postgres:
@@ -92,18 +75,34 @@ func (o *DB) CQLX() (*gocqlx.Session, error) {
 	return o.cql, nil
 }
 
-func (o *DB) Select(dst interface{}, stmt string, names []string, args interface{}) error {
+func (o *DB) SelectFromMap(dst interface{}, stmt string, names []string, args map[string]interface{}) error {
 	switch o.DBSource {
 	case DBSource_postgres, DBSource_mysql:
 		namedStmt := ToNamedStatement(o.DBSource, stmt, names)
-		fmt.Println("namedStmt", namedStmt)
+
 		query, err := o.sql.PrepareNamed(namedStmt)
 		if err != nil {
 			return fmt.Errorf("prepare named: %w", err)
 		}
 		return query.Select(dst, args)
 	case DBSource_cql:
-		return o.cql.Query(stmt, names).Bind(args).Select(dst)
+		return o.cql.Query(stmt, names).BindMap(args).Select(dst)
+	}
+	return nil
+}
+
+func (o *DB) Select(dst interface{}, stmt string, names []string, args interface{}) error {
+	switch o.DBSource {
+	case DBSource_postgres, DBSource_mysql:
+		namedStmt := ToNamedStatement(o.DBSource, stmt, names)
+
+		query, err := o.sql.PrepareNamed(namedStmt)
+		if err != nil {
+			return fmt.Errorf("prepare named: %w", err)
+		}
+		return query.Select(dst, args)
+	case DBSource_cql:
+		return o.cql.Query(stmt, names).BindStruct(args).Select(dst)
 	}
 	return nil
 }
@@ -117,7 +116,7 @@ func (o *DB) Get(dst interface{}, stmt string, names []string, args interface{})
 		}
 		return query.Get(dst, args)
 	case DBSource_cql:
-		return o.cql.Query(stmt, names).Bind(args).Get(dst)
+		return o.cql.Query(stmt, names).BindStruct(args).Get(dst)
 	}
 	return nil
 }
@@ -147,7 +146,7 @@ func (o *DB) DropAll() error {
 
 	// mysql
 	// select TABLE_NAME from information_schema.tables where TABLE_SCHEMA='test_db';
-	if err := o.Select(&tableNames, `select TABLE_NAME from information_schema.tables where TABLE_SCHEMA=?`, []string{"tableSchema"}, map[string]string{
+	if err := o.SelectFromMap(&tableNames, `select TABLE_NAME from information_schema.tables where TABLE_SCHEMA=?`, []string{"tableSchema"}, map[string]interface{}{
 		"tableSchema": o.DBName,
 	}); err != nil {
 		return fmt.Errorf("select: %w", err)
@@ -175,9 +174,8 @@ func (o *DB) WriteBatch(queries []string, namesForSrcs [][]string, srcs []interf
 			var args []interface{}
 			// Set Args
 			for _, name := range namesForSrcs[i] {
-				args = append(args, o.cql.Mapper.FieldByName(reflect.ValueOf(srcs[i]), name))
+				args = append(args, o.cql.Mapper.FieldByName(reflect.ValueOf(srcs[i]), name).Interface())
 			}
-
 			batch.Query(query, args...)
 		}
 		if err := o.cql.Session.ExecuteBatch(batch); err != nil {
@@ -193,9 +191,9 @@ func (o *DB) WriteBatch(queries []string, namesForSrcs [][]string, srcs []interf
 		for i, query := range queries {
 			var args []interface{}
 			for _, name := range namesForSrcs[i] {
-				args = append(args, o.sql.Mapper.FieldByName(reflect.ValueOf(srcs[i]), name))
+				args = append(args, o.sql.Mapper.FieldByName(reflect.ValueOf(srcs[i]), name).Interface())
 			}
-			tx.Exec(statement.FromQueryBuilder(o.DBSource.String(), query), args...)
+			tx.Exec(FromQueryBuilder(o.DBSource, query), args...)
 		}
 		if err := tx.Commit(); err != nil {
 			return fmt.Errorf("execute transaction: %v", err)
@@ -211,6 +209,11 @@ type BatchOption interface {
 
 type BatchOptions struct {
 	BatchType gocql.BatchType
+}
+
+func (bo *BatchOptions) applyOption(in *BatchOptions) error {
+	bo.BatchType = in.BatchType
+	return nil
 }
 
 type Scanner interface {
@@ -276,10 +279,8 @@ func (o *DB) Exec(stmt string, names []string, args interface{}) error {
 		query := o.cql.Query(stmt, names).BindStruct(args)
 		return query.ExecRelease()
 	}
-
 	if o.sql != nil {
 		namedStmt := ToNamedStatement(o.DBSource, stmt, names)
-		fmt.Println("namedStmt", namedStmt)
 		_, err := o.sql.NamedExec(namedStmt, args)
 		return err
 	}

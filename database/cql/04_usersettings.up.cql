@@ -1,8 +1,7 @@
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE IF NOT EXISTS user_settings (
     user_id varchar,
-    username text,
-    email text,
-    verified boolean,
+    metadata map<text,text>,
+    scope scope,
     created_at bigint,
     updated_at bigint,
     created_by varchar,

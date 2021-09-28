@@ -1,4 +1,4 @@
-module github.com/digital-dream-labs/go-sql
+module github.com/digital-dream-labs/go-sql/v2
 
 go 1.16
 
@@ -16,7 +16,6 @@ require (
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/go-cmp v0.5.4
-	github.com/iancoleman/strcase v0.2.0
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/lib/pq v1.8.0
 	github.com/opencontainers/go-digest v1.0.0 // indirect
