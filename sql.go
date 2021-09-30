@@ -287,6 +287,19 @@ func (o *DB) Exec(stmt string, names []string, args interface{}) error {
 	return errors.New("no source configured")
 }
 
+func (o *DB) ExecMap(stmt string, names []string, args map[string]interface{}) error {
+	if o.cql != nil {
+		query := o.cql.Query(stmt, names).BindMap(args)
+		return query.ExecRelease()
+	}
+	if o.sql != nil {
+		namedStmt := ToNamedStatement(o.DBSource, stmt, names)
+		_, err := o.sql.NamedExec(namedStmt, args)
+		return err
+	}
+	return errors.New("no source configured")
+}
+
 func (o *DB) ExecMany(stmt string, names []string, args ...interface{}) error {
 	if o.cql != nil {
 		query := o.cql.Query(stmt, names)
