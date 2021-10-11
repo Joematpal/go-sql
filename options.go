@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -61,7 +62,7 @@ func (o *DB) IsValid() error {
 		}
 	}
 
-	return nil
+	return fmt.Errorf("db source %s is not supported", o.DBSource)
 }
 
 // GetMigratePath will add the protocol if it is not there assuming that the path is a local file
@@ -182,6 +183,18 @@ func WithDebugger(debugger Debugger) Option {
 	})
 }
 
+func WithDatabaseConnectionString(s string) Option {
+	return optionApplyFunc(func(d *DB) error {
+		// Parse the db connection string
+		db, err := parseDBConnectionString(s)
+		if err != nil {
+			return err
+		}
+
+		return db.applyOption(d)
+	})
+}
+
 func (o *DB) getDataSource() (string, error) {
 
 	switch o.DBSource {
@@ -290,4 +303,49 @@ func (o *DB) getPostgresDataSource() (string, error) {
 		return sb.String(), err
 	}
 	return sb.String(), nil
+}
+
+func parseDBConnectionString(s string) (*DB, error) {
+
+	// Does not support mysql's tcp()
+	// mysql://username:password@tcp(host:port)/dbname?query
+	// postgres://username:password@host:port/dbname?query
+	// postgresql://username:password@host:port/dbname?query
+	db := &DB{}
+
+	u, err := url.Parse(s)
+	if err != nil {
+		return nil, err
+	}
+
+	// dbsource
+	switch u.Scheme {
+	case "postgresql", "postgres":
+		db.DBSource = DBSource_postgres
+	case "cassandra":
+		db.DBSource = DBSource_cql
+	case "mysql":
+		db.DBSource = DBSource_mysql
+	default:
+		return nil, errors.New("source not supported")
+	}
+
+	// username
+	db.User = u.User.Username()
+	// password
+	if passwd, ok := u.User.Password(); ok {
+		db.Password = passwd
+	}
+	// host
+	db.Hosts = []string{strings.TrimRight(u.Host, ":"+u.Port())}
+
+	// port
+	db.Port = u.Port()
+
+	// dbname
+	fmt.Println(strings.Split(strings.TrimLeft(u.Path, "/"), "/"))
+
+	db.DBName = strings.Split(strings.TrimLeft(u.Path, "/"), "/")[0]
+
+	return db, nil
 }

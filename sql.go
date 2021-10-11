@@ -116,6 +116,7 @@ func (o *DB) Get(dst interface{}, stmt string, names []string, args interface{})
 		}
 		return query.Get(dst, args)
 	case DBSource_cql:
+		fmt.Println("dst", dst)
 		return o.cql.Query(stmt, names).BindStruct(args).Get(dst)
 	}
 	return nil
@@ -174,7 +175,9 @@ func (o *DB) WriteBatch(queries []string, namesForSrcs [][]string, srcs []interf
 			var args []interface{}
 			// Set Args
 			for _, name := range namesForSrcs[i] {
-				args = append(args, o.cql.Mapper.FieldByName(reflect.ValueOf(srcs[i]), name).Interface())
+				val := o.cql.Mapper.FieldByName(reflect.ValueOf(srcs[i]), name).Interface()
+				fmt.Println(val)
+				args = append(args, val)
 			}
 			batch.Query(query, args...)
 		}
@@ -193,10 +196,13 @@ func (o *DB) WriteBatch(queries []string, namesForSrcs [][]string, srcs []interf
 			for _, name := range namesForSrcs[i] {
 				args = append(args, o.sql.Mapper.FieldByName(reflect.ValueOf(srcs[i]), name).Interface())
 			}
-			tx.Exec(FromQueryBuilder(o.DBSource, query), args...)
+			fmt.Println("query", query)
+			if _, err := tx.Exec(FromQueryBuilder(o.DBSource, query), args...); err != nil {
+				return fmt.Errorf("exec transaction: %v", err)
+			}
 		}
 		if err := tx.Commit(); err != nil {
-			return fmt.Errorf("execute transaction: %v", err)
+			return fmt.Errorf("commit transaction: %v", err)
 		}
 
 	}

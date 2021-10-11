@@ -2,7 +2,7 @@ package flags
 
 import "github.com/urfave/cli/v2"
 
-var (
+const (
 	DBType  = "db-type"
 	DBUser  = "db-user"
 	DBHosts = "db-hosts"
