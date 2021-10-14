@@ -39,7 +39,7 @@ func (o *DB) applyOption(out *DB) error {
 		out.Debugger = o.Debugger
 	}
 
-	if o.DBSource == "" {
+	if o.DBSource != "" {
 		out.DBSource = o.DBSource
 	}
 
@@ -48,18 +48,19 @@ func (o *DB) applyOption(out *DB) error {
 
 func (o *DB) IsValid() error {
 	// Check if the DBSource is set because that means that the db driver/type is not set
-
 	switch o.DBSource {
 	case DBSource_postgres, DBSource_mysql:
 		// Check if there is already and existing connection
 		if err := dbs.GetSQLConnection(o); err != nil {
 			return fmt.Errorf("sql conn: %v", err)
 		}
+		return nil
 	case DBSource_cql:
 		// Check if there is already and existing connection
 		if err := dbs.GetCQLConnection(o); err != nil {
 			return fmt.Errorf("cql conn: %v", err)
 		}
+		return nil
 	}
 
 	return fmt.Errorf("db source %s is not supported", o.DBSource)
@@ -191,7 +192,11 @@ func WithDatabaseConnectionString(s string) Option {
 			return err
 		}
 
-		return db.applyOption(d)
+		if err := db.applyOption(d); err != nil {
+			return err
+		}
+
+		return nil
 	})
 }
 
@@ -343,8 +348,6 @@ func parseDBConnectionString(s string) (*DB, error) {
 	db.Port = u.Port()
 
 	// dbname
-	fmt.Println(strings.Split(strings.TrimLeft(u.Path, "/"), "/"))
-
 	db.DBName = strings.Split(strings.TrimLeft(u.Path, "/"), "/")[0]
 
 	return db, nil

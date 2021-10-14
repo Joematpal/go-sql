@@ -54,7 +54,6 @@ func New(in ...Option) (*DB, error) {
 			return nil, err
 		}
 	}
-
 	return opts, opts.IsValid()
 }
 
@@ -84,6 +83,7 @@ func (o *DB) SelectFromMap(dst interface{}, stmt string, names []string, args ma
 		if err != nil {
 			return fmt.Errorf("prepare named: %w", err)
 		}
+		defer query.Close()
 		return query.Select(dst, args)
 	case DBSource_cql:
 		return o.cql.Query(stmt, names).BindMap(args).Select(dst)
@@ -196,11 +196,15 @@ func (o *DB) WriteBatch(queries []string, namesForSrcs [][]string, srcs []interf
 			for _, name := range namesForSrcs[i] {
 				args = append(args, o.sql.Mapper.FieldByName(reflect.ValueOf(srcs[i]), name).Interface())
 			}
-			fmt.Println("query", query)
+
 			if _, err := tx.Exec(FromQueryBuilder(o.DBSource, query), args...); err != nil {
+				if err := tx.Rollback(); err != nil {
+					return fmt.Errorf("exec rollback: %v", err)
+				}
 				return fmt.Errorf("exec transaction: %v", err)
 			}
 		}
+
 		if err := tx.Commit(); err != nil {
 			return fmt.Errorf("commit transaction: %v", err)
 		}

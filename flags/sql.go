@@ -22,45 +22,45 @@ var DBFlags = []cli.Flag{
 	&cli.StringFlag{
 		Name:    DBType,
 		Value:   "postgres",
-		EnvVars: FlagNamesToEnv(DBType),
+		EnvVars: flagNamesToEnv(DBType),
 	},
 	&cli.StringFlag{
 		Name:    DBUser,
-		EnvVars: FlagNamesToEnv(DBUser),
+		EnvVars: flagNamesToEnv(DBUser),
 	},
 	&cli.StringFlag{
 		Name:    DBHosts,
-		EnvVars: FlagNamesToEnv(DBHosts),
+		EnvVars: flagNamesToEnv(DBHosts),
 	},
 	&cli.StringFlag{
 		Name:    DBName,
-		EnvVars: FlagNamesToEnv(DBName),
+		EnvVars: flagNamesToEnv(DBName),
 	},
 	&cli.StringFlag{
 		Name:    DBPass,
-		EnvVars: FlagNamesToEnv(DBPass),
+		EnvVars: flagNamesToEnv(DBPass),
 	},
 	&cli.StringFlag{
 		Name:    DBPort,
 		Value:   "5432",
-		EnvVars: FlagNamesToEnv(DBPort),
+		EnvVars: flagNamesToEnv(DBPort),
 	},
 	&cli.BoolFlag{
 		Name:    Migrate,
-		EnvVars: FlagNamesToEnv(Migrate),
+		EnvVars: flagNamesToEnv(Migrate),
 	},
 	&cli.StringFlag{
 		Name:    MigratePath,
 		Value:   "database/sql",
-		EnvVars: FlagNamesToEnv(MigratePath),
+		EnvVars: flagNamesToEnv(MigratePath),
 	},
 	&cli.StringFlag{
 		Name:    DBSource,
 		Value:   "",
-		EnvVars: FlagNamesToEnv(DBSource),
+		EnvVars: flagNamesToEnv(DBSource),
 	},
 	&cli.PathFlag{
 		Name:    DBTLS,
-		EnvVars: FlagNamesToEnv(DBTLS),
+		EnvVars: flagNamesToEnv(DBTLS),
 	},
 }
