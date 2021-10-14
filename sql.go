@@ -116,7 +116,6 @@ func (o *DB) Get(dst interface{}, stmt string, names []string, args interface{})
 		}
 		return query.Get(dst, args)
 	case DBSource_cql:
-		fmt.Println("dst", dst)
 		return o.cql.Query(stmt, names).BindStruct(args).Get(dst)
 	}
 	return nil
@@ -176,7 +175,6 @@ func (o *DB) WriteBatch(queries []string, namesForSrcs [][]string, srcs []interf
 			// Set Args
 			for _, name := range namesForSrcs[i] {
 				val := o.cql.Mapper.FieldByName(reflect.ValueOf(srcs[i]), name).Interface()
-				fmt.Println(val)
 				args = append(args, val)
 			}
 			batch.Query(query, args...)
