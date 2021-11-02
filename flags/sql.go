@@ -9,7 +9,7 @@ const (
 	DBName  = "db-name"
 	DBPass  = "db-pass"
 	DBPort  = "db-port"
-	// TODO: we need to find a way to emplement TLS for the db drivers we support
+	// TODO: we need to find a way to implement TLS for the db drivers we support
 	DBTLS       = "db-tls"
 	DBPubCert   = "db-pub-cert"
 	DBPrivCert  = "db-priv-cert"

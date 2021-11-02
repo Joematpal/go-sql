@@ -263,6 +263,10 @@ func (o *DB) getMysqlDataSource() (string, error) {
 	if _, err := sb.WriteString(fmt.Sprintf("/%s", o.DBName)); err != nil {
 		return sb.String(), err
 	}
+	if _, err := sb.WriteString(fmt.Sprintf("?multiStatements=%s", "true")); err != nil {
+		return sb.String(), err
+	}
+
 	// TODO: Add in the TLS support
 	return sb.String(), nil
 }

@@ -5,7 +5,7 @@ import (
 
 	"github.com/digital-dream-labs/go-sql/v2/table"
 	test_users "github.com/digital-dream-labs/go-sql/v2/test/users"
-	_ "github.com/golang-migrate/migrate/source/file"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	cqlreflectx "github.com/scylladb/go-reflectx"

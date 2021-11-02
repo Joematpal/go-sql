@@ -8,7 +8,7 @@ import (
 	"reflect"
 
 	"github.com/gocql/gocql"
-	_ "github.com/golang-migrate/migrate/source/file"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jmoiron/sqlx"
 	cqlreflectx "github.com/scylladb/go-reflectx"
 	"github.com/scylladb/gocqlx/v2"
@@ -43,6 +43,8 @@ func (s DBSource) String() string {
 	return string(s)
 }
 
+// Here it converts json that is camel case to snakecase
+// Can pass through
 func New(in ...Option) (*DB, error) {
 	opts := &DB{
 		MigratePath: "database/sql",
@@ -107,6 +109,7 @@ func (o *DB) Select(dst interface{}, stmt string, names []string, args interface
 	return nil
 }
 
+// Returns one document
 func (o *DB) Get(dst interface{}, stmt string, names []string, args interface{}) error {
 	switch o.DBSource {
 	case DBSource_postgres, DBSource_mysql:

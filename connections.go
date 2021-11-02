@@ -8,17 +8,19 @@ import (
 	"sync"
 
 	"github.com/gocql/gocql"
-	"github.com/golang-migrate/migrate"
-	"github.com/golang-migrate/migrate/database"
-	"github.com/golang-migrate/migrate/database/cassandra"
-	"github.com/golang-migrate/migrate/database/mysql"
-	"github.com/golang-migrate/migrate/database/postgres"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database"
+	"github.com/golang-migrate/migrate/v4/database/cassandra"
+	"github.com/golang-migrate/migrate/v4/database/mysql"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/reflectx"
 	cqlreflectx "github.com/scylladb/go-reflectx"
 	"github.com/scylladb/gocqlx/v2"
 )
 
+// TODO: Use master v4 version
+// Current one is out of date and not supported
 var dbs = &dbConnections{
 	m: map[string]*DB{},
 }
