@@ -24,7 +24,7 @@ type DB struct {
 	Migrate     bool     `json:"migrate"`
 	MigratePath string   `json:"migratePath"`
 	DBSource    DBSource `json:"dbSource"`
-	Debugger    Debugger
+	Debugger    Debugger `json:"-"`
 	err         error
 	cql         *gocqlx.Session
 	mapFunc     func(string) string
@@ -197,8 +197,11 @@ func (o *DB) WriteBatch(queries []string, namesForSrcs [][]string, srcs []interf
 			for _, name := range namesForSrcs[i] {
 				args = append(args, o.sql.Mapper.FieldByName(reflect.ValueOf(srcs[i]), name).Interface())
 			}
-
-			if _, err := tx.Exec(FromQueryBuilder(o.DBSource, query), args...); err != nil {
+			if _, err := tx.Exec("SET FOREIGN_KEY_CHECKS=0"); err != nil {
+				return fmt.Errorf("exec foriegn: %v", err)
+			}
+			q := FromQueryBuilder(o.DBSource, query)
+			if _, err := tx.Exec(q, args...); err != nil {
 				if err := tx.Rollback(); err != nil {
 					return fmt.Errorf("exec rollback: %v", err)
 				}
@@ -262,9 +265,11 @@ func (o *DB) Queryx(stmt string, names []string, args ...interface{}) (Scanner, 
 	}
 
 	if o.sql != nil {
-		query, err := o.sql.Query(stmt, names)
+		named := ToNamedStatement(o.DBSource, stmt, names)
+		o.Debugf("name: %v", named)
+		query, err := o.sql.Queryx(named, args...)
 		if err != nil {
-			return nil, fmt.Errorf("sql query: %v", err)
+			return nil, fmt.Errorf("sql queryx: %v", err)
 		}
 		return query, nil
 	}
