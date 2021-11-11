@@ -10,12 +10,13 @@ const (
 	DBPass  = "db-pass"
 	DBPort  = "db-port"
 	// TODO: we need to find a way to implement TLS for the db drivers we support
-	DBTLS       = "db-tls"
-	DBPubCert   = "db-pub-cert"
-	DBPrivCert  = "db-priv-cert"
-	Migrate     = "migrate"
-	MigratePath = "migrate-path"
-	DBSource    = "db-source"
+	DBTLS                  = "db-tls"
+	DBCertificateAuthority = "db-ca-cert"
+	DBPubCert              = "db-pub-cert"
+	DBPrivCert             = "db-priv-cert"
+	Migrate                = "migrate"
+	MigratePath            = "migrate-path"
+	DBSource               = "db-source"
 )
 
 var DBFlags = []cli.Flag{
@@ -59,8 +60,12 @@ var DBFlags = []cli.Flag{
 		Value:   "",
 		EnvVars: flagNamesToEnv(DBSource),
 	},
-	&cli.PathFlag{
+	&cli.BoolFlag{
 		Name:    DBTLS,
 		EnvVars: flagNamesToEnv(DBTLS),
+	},
+	&cli.StringFlag{
+		Name:    DBCertificateAuthority,
+		EnvVars: flagNamesToEnv((DBCertificateAuthority)),
 	},
 }
