@@ -233,6 +233,13 @@ func WithDisableInitialHostLookup() Option {
 	})
 }
 
+func WithCertificateAuthority(path string) Option {
+	return optionApplyFunc(func(d *DB) error {
+		d.CaPath = path
+		return nil
+	})
+}
+
 func (o *DB) getDataSource() (string, error) {
 
 	switch o.DBSource {
