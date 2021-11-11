@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"github.com/gocql/gocql"
 )
 
 func (o *DB) applyOption(out *DB) error {
@@ -41,6 +43,16 @@ func (o *DB) applyOption(out *DB) error {
 
 	if o.DBSource != "" {
 		out.DBSource = o.DBSource
+	}
+
+	if o.Authenticator != nil {
+		out.Authenticator = o.Authenticator
+	}
+
+	out.DisableInitialHostLookup = o.DisableInitialHostLookup
+
+	if out.Consistency != 0 {
+		out.Consistency = o.Consistency
 	}
 
 	return nil
@@ -196,6 +208,27 @@ func WithDatabaseConnectionString(s string) Option {
 			return err
 		}
 
+		return nil
+	})
+}
+
+func WithAuthenticator(authenticator gocql.Authenticator) Option {
+	return optionApplyFunc(func(d *DB) error {
+		d.Authenticator = authenticator
+		return nil
+	})
+}
+
+func WithConsistency(consistency gocql.Consistency) Option {
+	return optionApplyFunc(func(d *DB) error {
+		d.Consistency = consistency
+		return nil
+	})
+}
+
+func WithDisableInitialHostLookup() Option {
+	return optionApplyFunc(func(d *DB) error {
+		d.DisableInitialHostLookup = true
 		return nil
 	})
 }

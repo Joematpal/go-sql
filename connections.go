@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -95,17 +96,38 @@ func (dbc *dbConnections) GetCQLConnection(o *DB) error {
 		return val.err
 	}
 
-	// Try to open a connection if it doesn't exist
-
 	cluster := gocql.NewCluster(o.Hosts...)
 
-	cluster.Authenticator = gocql.PasswordAuthenticator{
-		Username: o.User,
-		Password: o.Password,
+	cluster.Port, err = strconv.Atoi(o.Port)
+	if err != nil {
+		return fmt.Errorf("atoi: %w", err)
 	}
+
+	if o.DisableInitialHostLookup {
+		cluster.DisableInitialHostLookup = true
+	}
+
+	// Authentication
+	if o.Authenticator != nil {
+		cluster.Authenticator = o.Authenticator
+	} else {
+		cluster.Authenticator = gocql.PasswordAuthenticator{
+			Username: o.User,
+			Password: o.Password,
+		}
+	}
+
 	cluster.ProtoVersion = 3
 
-	//FIXME:  add in tls stuff for cql
+	// SSL
+	if o.CaPath != "" {
+		cluster.SslOpts = &gocql.SslOptions{
+			CaPath: o.CaPath,
+		}
+	}
+
+	// Consistency
+	cluster.Consistency = o.Consistency
 
 	// Create keyspace on migration, it should fail if we try to connect to an unmigrated db
 	if o.Migrate {

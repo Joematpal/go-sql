@@ -29,6 +29,12 @@ type DB struct {
 	cql         *gocqlx.Session
 	mapFunc     func(string) string
 	tagMapFunc  func(string) string
+	// CQL
+	Authenticator            gocql.Authenticator `json:"-"`
+	DisableInitialHostLookup bool                `json:"disableInitialHostLookup"`
+	Consistency              gocql.Consistency
+	// SSL
+	CaPath string `json:"caPath"`
 }
 
 type DBSource string
