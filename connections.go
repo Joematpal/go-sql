@@ -130,7 +130,7 @@ func (dbc *dbConnections) GetCQLConnection(o *DB) error {
 	cluster.Consistency = o.Consistency
 
 	// Create keyspace on migration, it should fail if we try to connect to an unmigrated db
-	if o.Migrate {
+	if o.Migrate && o.AppEnv == development {
 		ts, err := cluster.CreateSession()
 		if err != nil {
 			return err

@@ -171,6 +171,18 @@ func WithMigratePath(migratePath string) Option {
 	})
 }
 
+func WithAppEnv(appEnv string) Option {
+	return optionApplyFunc(func(d *DB) error {
+		switch appEnv {
+		case production, development:
+			d.AppEnv = appEnv
+			return nil
+		default:
+			return fmt.Errorf("only %s and %s are supported", production, development)
+		}
+	})
+}
+
 // WithDBSource ...
 func WithDBSource(dbSource string) Option {
 	return optionApplyFunc(func(o *DB) error {

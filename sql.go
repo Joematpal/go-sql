@@ -16,6 +16,7 @@ import (
 
 type DB struct {
 	sql         *sqlx.DB
+	AppEnv      string   `json:"appEnv"`
 	User        string   `json:"user"`
 	Hosts       []string `json:"hosts"`
 	DBName      string   `json:"dbName"`
@@ -29,10 +30,12 @@ type DB struct {
 	cql         *gocqlx.Session
 	mapFunc     func(string) string
 	tagMapFunc  func(string) string
+
 	// CQL
 	Authenticator            gocql.Authenticator `json:"-"`
 	DisableInitialHostLookup bool                `json:"disableInitialHostLookup"`
 	Consistency              gocql.Consistency
+
 	// SSL
 	CaPath string `json:"caPath"`
 }
@@ -43,6 +46,8 @@ const (
 	DBSource_postgres DBSource = "postgres"
 	DBSource_mysql    DBSource = "mysql"
 	DBSource_cql      DBSource = "cql"
+	production        string   = "production"
+	development       string   = "development"
 )
 
 func (s DBSource) String() string {
@@ -53,6 +58,7 @@ func (s DBSource) String() string {
 // Can pass through
 func New(in ...Option) (*DB, error) {
 	opts := &DB{
+		AppEnv:      production,
 		MigratePath: "database/sql",
 		mapFunc:     cqlreflectx.CamelToSnakeASCII,
 		tagMapFunc:  cqlreflectx.CamelToSnakeASCII,
