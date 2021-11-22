@@ -136,6 +136,21 @@ func (o *DB) Get(dst interface{}, stmt string, names []string, args interface{})
 	return nil
 }
 
+// Returns one document
+func (o *DB) GetFromMap(dst interface{}, stmt string, names []string, args map[string]interface{}) error {
+	switch o.DBSource {
+	case DBSource_postgres, DBSource_mysql:
+		query, err := o.sql.PrepareNamed(ToNamedStatement(o.DBSource, stmt, names))
+		if err != nil {
+			return fmt.Errorf("prepare named: %w", err)
+		}
+		return query.Get(dst, args)
+	case DBSource_cql:
+		return o.cql.Query(stmt, names).BindMap(args).Get(dst)
+	}
+	return nil
+}
+
 func (o *DB) Ping() error {
 	if o.cql != nil {
 		return o.cql.ExecStmt("SELECT cql_version FROM system.local")
