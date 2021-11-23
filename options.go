@@ -1,290 +1,361 @@
 package sql
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 
-	"github.com/jmoiron/sqlx"
+	"github.com/gocql/gocql"
 )
 
-type Options struct {
-	DriverName  string
-	DB          *sqlx.DB
-	User        string
-	Host        string
-	DBName      string
-	Password    string
-	Port        string
-	Migrate     bool
-	MigratePath string
-	DBSource    string
-	Debugger    Debugger
-	err         error
-}
+func (o *DB) applyOption(out *DB) error {
 
-func (opts *Options) applyOption(out *Options) error {
-	if opts.DriverName != "" {
-		out.DriverName = opts.DriverName
+	if o.sql != nil {
+		out.sql = o.sql
 	}
-	if opts.DB != nil {
-		out.DB = opts.DB
+	if o.User != "" {
+		out.User = o.User
 	}
-	if opts.User != "" {
-		out.User = opts.User
+	if len(o.Hosts) != 0 {
+		out.Hosts = append(out.Hosts, o.Hosts...)
 	}
-	if opts.Host != "" {
-		out.Host = opts.Host
+	if o.DBName != "" {
+		out.DBName = o.DBName
 	}
-	if opts.DBName != "" {
-		out.DBName = opts.DBName
+	if o.Password != "" {
+		out.Password = o.Password
 	}
-	if opts.Password != "" {
-		out.Password = opts.Password
-	}
-	if opts.Port != "" {
-		out.Port = opts.Port
+	if o.Port != "" {
+		out.Port = o.Port
 	}
 
-	out.Migrate = opts.Migrate
+	out.Migrate = o.Migrate
 
-	if opts.MigratePath != "" {
-		out.MigratePath = opts.MigratePath
+	if o.MigratePath != "" {
+		out.MigratePath = o.MigratePath
 	}
 
-	if opts.Debugger != nil {
-		out.Debugger = opts.Debugger
+	if o.Debugger != nil {
+		out.Debugger = o.Debugger
 	}
 
-	if opts.DBSource == "" {
-		out.DBSource = opts.DBSource
+	if o.DBSource != "" {
+		out.DBSource = o.DBSource
+	}
+
+	if o.Authenticator != nil {
+		out.Authenticator = o.Authenticator
+	}
+
+	out.DisableInitialHostLookup = o.DisableInitialHostLookup
+
+	if out.Consistency != 0 {
+		out.Consistency = o.Consistency
 	}
 
 	return nil
 }
 
-func (opts *Options) IsValid() error {
+func (o *DB) IsValid() error {
 	// Check if the DBSource is set because that means that the db driver/type is not set
-
-	if opts.DBSource != "" {
-		opts.DriverName = mysqlSource
-		if strings.Contains(opts.DBSource, postgresSource) {
-			opts.DriverName = postgresSource
+	switch o.DBSource {
+	case DBSource_postgres, DBSource_mysql:
+		// Check if there is already and existing connection
+		if err := dbs.GetSQLConnection(o); err != nil {
+			return fmt.Errorf("sql conn: %v", err)
 		}
+		return nil
+	case DBSource_cql:
+		// Check if there is already and existing connection
+		if err := dbs.GetCQLConnection(o); err != nil {
+			return fmt.Errorf("cql conn: %v", err)
+		}
+		return nil
 	}
 
-	// Check if there is already and existing connection
-	if err := dbs.GetConnection(opts); err != nil {
-		return fmt.Errorf("dbconns dbx: %v", err)
-	}
-
-	return nil
+	return fmt.Errorf("db source %s is not supported", o.DBSource)
 }
 
 // GetMigratePath will add the protocol if it is not there assuming that the path is a local file
-func (opts *Options) GetMigratePath() string {
-	if strings.Contains(opts.MigratePath, "://") {
-		return opts.MigratePath
+func (o *DB) GetMigratePath() string {
+	if strings.Contains(o.MigratePath, "://") {
+		return o.MigratePath
 	}
-	return fmt.Sprintf("file://%s", opts.MigratePath)
+	return fmt.Sprintf("file://%s", o.MigratePath)
 }
 
-// DBX
-func (opts *Options) DBX() (*sqlx.DB, error) {
-	if opts.DriverName == "" {
-		return nil, errors.New("please provide a driver type")
-	}
-
-	if opts.DB != nil {
-		return opts.DB, nil
-	}
-	return nil, errors.New("db connection not created")
-}
-
-func (opts *Options) Debugf(format string, args ...interface{}) {
-	if opts.Debugger != nil {
-		opts.Debugger.Debugf(format, args...)
+func (o *DB) Debugf(format string, args ...interface{}) {
+	if o.Debugger != nil {
+		o.Debugger.Debugf(format, args...)
 	}
 }
 
-// Option interface to add values to the opts struct
+// Option interface to add values to the o struct
 type Option interface {
-	applyOption(*Options) error
+	applyOption(*DB) error
 }
 
-type optionApplyFunc func(*Options) error
+type optionApplyFunc func(*DB) error
 
-func (f optionApplyFunc) applyOption(opts *Options) error {
-	return f(opts)
+func (f optionApplyFunc) applyOption(o *DB) error {
+	return f(o)
 }
 
 // WithHost pass in the ip or fqdn of where the db is hosted
 func WithHost(host string) Option {
-	return optionApplyFunc(func(opts *Options) error {
-		opts.Host = host
+	return optionApplyFunc(func(o *DB) error {
+		o.Hosts = append(o.Hosts, host)
+		return nil
+	})
+}
+
+func WithHosts(hosts ...string) Option {
+	return optionApplyFunc(func(o *DB) error {
+		o.Hosts = append(o.Hosts, hosts...)
 		return nil
 	})
 }
 
 // WithType pass in the type of sql db being used
 func WithType(driverName string) Option {
-	return optionApplyFunc(func(opts *Options) error {
-		opts.DriverName = driverName
-		return nil
-	})
+	return WithDBSource(driverName)
 }
 
 // WithUser pass in the user
 func WithUser(user string) Option {
-	return optionApplyFunc(func(opts *Options) error {
-		opts.User = user
+	return optionApplyFunc(func(o *DB) error {
+		o.User = user
 		return nil
 	})
 }
 
 // WithPassword pass in the password
 func WithPassword(password string) Option {
-	return optionApplyFunc(func(opts *Options) error {
-		opts.Password = password
+	return optionApplyFunc(func(o *DB) error {
+		o.Password = password
 		return nil
 	})
 }
 
 // WithDBName pass in the name of the db
 func WithDBName(name string) Option {
-	return optionApplyFunc(func(opts *Options) error {
-		opts.DBName = name
+	return optionApplyFunc(func(o *DB) error {
+		o.DBName = name
 		return nil
 	})
 }
 
 // WithPort pass in the port the db is hosted on
 func WithPort(port string) Option {
-	return optionApplyFunc(func(opts *Options) error {
-		opts.Port = port
+	return optionApplyFunc(func(o *DB) error {
+		o.Port = port
 		return nil
 	})
 }
 
 // WithMigrate pass in the flag if the db is to apply migrations
 func WithMigrate(migrate bool) Option {
-	return optionApplyFunc(func(opts *Options) error {
-		opts.Migrate = migrate
+	return optionApplyFunc(func(o *DB) error {
+		o.Migrate = migrate
 		return nil
 	})
 }
 
 // WithMigratePath pass in the filepath the db needs for the migrations that need to be added
 func WithMigratePath(migratePath string) Option {
-	return optionApplyFunc(func(opts *Options) error {
-		opts.MigratePath = migratePath
+	return optionApplyFunc(func(o *DB) error {
+		o.MigratePath = migratePath
 		return nil
+	})
+}
+
+func WithAppEnv(appEnv string) Option {
+	return optionApplyFunc(func(d *DB) error {
+		switch appEnv {
+		case production, development:
+			d.AppEnv = appEnv
+			return nil
+		default:
+			return fmt.Errorf("only %s and %s are supported", production, development)
+		}
 	})
 }
 
 // WithDBSource ...
 func WithDBSource(dbSource string) Option {
-	return optionApplyFunc(func(opts *Options) error {
-		opts.DBSource = dbSource
+	return optionApplyFunc(func(o *DB) error {
+		switch DBSource(dbSource) {
+		case DBSource_postgres:
+			o.DBSource = DBSource_postgres
+		case DBSource_mysql:
+			o.DBSource = DBSource_mysql
+		case DBSource_cql:
+			o.DBSource = DBSource_cql
+		default:
+			return fmt.Errorf("dbsource %s not supported", dbSource)
+		}
 		return nil
 	})
 }
 
 // WithDebugger pass in the debugger the db can use for debug statements
 func WithDebugger(debugger Debugger) Option {
-	return optionApplyFunc(func(opts *Options) error {
-		opts.Debugger = debugger
+	return optionApplyFunc(func(o *DB) error {
+		o.Debugger = debugger
 		return nil
 	})
 }
 
-func (opts *Options) getDataSource(custom string) (string, error) {
+func WithDatabaseConnectionString(s string) Option {
+	return optionApplyFunc(func(d *DB) error {
+		// Parse the db connection string
+		db, err := parseDBConnectionString(s)
+		if err != nil {
+			return err
+		}
 
-	if opts.DBSource != "" {
-		return opts.DBSource, nil
-	}
+		if err := db.applyOption(d); err != nil {
+			return err
+		}
 
-	switch opts.DriverName {
-	case mysqlSource:
-		return opts.getMysqlDataSource(custom)
-	case postgresSource:
-		return opts.getPostgresDataSource(custom)
+		return nil
+	})
+}
+
+func WithAuthenticator(authenticator gocql.Authenticator) Option {
+	return optionApplyFunc(func(d *DB) error {
+		d.Authenticator = authenticator
+		return nil
+	})
+}
+
+func WithConsistency(consistency gocql.Consistency) Option {
+	return optionApplyFunc(func(d *DB) error {
+		d.Consistency = consistency
+		return nil
+	})
+}
+
+func WithDisableInitialHostLookup() Option {
+	return optionApplyFunc(func(d *DB) error {
+		d.DisableInitialHostLookup = true
+		return nil
+	})
+}
+
+func WithCertificateAuthority(path string) Option {
+	return optionApplyFunc(func(d *DB) error {
+		d.CaPath = path
+		return nil
+	})
+}
+
+func (o *DB) getDataSource() (string, error) {
+
+	switch o.DBSource {
+	case DBSource_mysql:
+		return o.getMysqlDataSource()
+	case DBSource_postgres:
+		return o.getPostgresDataSource()
+	case DBSource_cql:
+		b, err := json.Marshal(o)
+		return string(b), err
 	default:
-		return "", errors.New("only mysql and postgres are supported")
+		return "", errors.New("only mysql, postgres and cql are supported")
 	}
+}
+
+func WithMapFunc(mapFunc func(string) string) Option {
+	return optionApplyFunc(func(d *DB) error {
+		d.mapFunc = mapFunc
+		return nil
+	})
+}
+
+func WithTagMapFunc(tagMapFunc func(string) string) Option {
+	return optionApplyFunc(func(d *DB) error {
+		d.tagMapFunc = tagMapFunc
+		return nil
+	})
 }
 
 // mysql connection string
 // [username[:password]@][protocol[(address)]]/dbname[?param1=value1&...&paramN=valueN]
-func (opts *Options) getMysqlDataSource(custom string) (string, error) {
+func (o *DB) getMysqlDataSource() (string, error) {
 	var sb strings.Builder
-	if opts.User == "" {
+	if o.User == "" {
 		return sb.String(), errors.New("db user cannot be an empty string")
 	}
-	if _, err := sb.WriteString(opts.User); err != nil {
+	if _, err := sb.WriteString(o.User); err != nil {
 		return sb.String(), err
 	}
-	if opts.Password == "" {
+	if o.Password == "" {
 		return sb.String(), errors.New("db password cannot be an empty string")
 	}
-	if _, err := sb.WriteString(fmt.Sprintf(":%s@", opts.Password)); err != nil {
+	if _, err := sb.WriteString(fmt.Sprintf(":%s@", o.Password)); err != nil {
 		return sb.String(), err
 	}
-	if opts.Host == "" {
+	if len(o.Hosts) == 0 {
 		return sb.String(), errors.New("db host cannot be an empty string")
 	}
-	if _, err := sb.WriteString(fmt.Sprintf("tcp(%s", opts.Host)); err != nil {
+	if _, err := sb.WriteString(fmt.Sprintf("tcp(%s", o.Hosts[0])); err != nil {
 		return sb.String(), err
 	}
-	if opts.Port == "" {
+	if o.Port == "" {
 		return sb.String(), errors.New("db port cannot be an empty string")
 	}
-	if _, err := sb.WriteString(fmt.Sprintf(":%s)", opts.Port)); err != nil {
+	if _, err := sb.WriteString(fmt.Sprintf(":%s)", o.Port)); err != nil {
 		return sb.String(), err
 	}
-	if opts.DBName == "" {
+	if o.DBName == "" {
 		return sb.String(), errors.New("db dbname cannot be an empty string")
 	}
-	if _, err := sb.WriteString(fmt.Sprintf("/%s", opts.DBName)); err != nil {
+	if _, err := sb.WriteString(fmt.Sprintf("/%s", o.DBName)); err != nil {
 		return sb.String(), err
 	}
+	if _, err := sb.WriteString(fmt.Sprintf("?multiStatements=%s", "true")); err != nil {
+		return sb.String(), err
+	}
+
 	// TODO: Add in the TLS support
 	return sb.String(), nil
 }
 
 // postgres connection string
 // "postgres://[username[:password]]@[host]/dbname?sslmode=verify-full"
-func (opts *Options) getPostgresDataSource(custom string) (string, error) {
+func (o *DB) getPostgresDataSource() (string, error) {
 	var sb strings.Builder
 	sb.WriteString("postgres://")
-	if opts.User == "" {
+	if o.User == "" {
 		return sb.String(), errors.New("db user cannot be an empty string")
 	}
-	if _, err := sb.WriteString(opts.User); err != nil {
+	if _, err := sb.WriteString(o.User); err != nil {
 		return sb.String(), err
 	}
-	if opts.Password == "" {
+	if o.Password == "" {
 		return sb.String(), errors.New("db password cannot be an empty string")
 	}
-	if _, err := sb.WriteString(fmt.Sprintf(":%s@", opts.Password)); err != nil {
+	if _, err := sb.WriteString(fmt.Sprintf(":%s@", o.Password)); err != nil {
 		return sb.String(), err
 	}
-	if opts.Host == "" {
+	if len(o.Hosts) == 0 {
 		return sb.String(), errors.New("db host cannot be an empty string")
 	}
-	if _, err := sb.WriteString(opts.Host); err != nil {
+	if _, err := sb.WriteString(o.Hosts[0]); err != nil {
 		return sb.String(), err
 	}
-	if opts.Port == "" {
+	if o.Port == "" {
 		return sb.String(), errors.New("db port cannot be an empty string")
 	}
-	if _, err := sb.WriteString(fmt.Sprintf(":%s", opts.Port)); err != nil {
+	if _, err := sb.WriteString(fmt.Sprintf(":%s", o.Port)); err != nil {
 		return sb.String(), err
 	}
-	if opts.DBName == "" {
+	if o.DBName == "" {
 		return sb.String(), errors.New("db dbname cannot be an empty string")
 	}
-	if _, err := sb.WriteString(fmt.Sprintf("/%s", opts.DBName)); err != nil {
+	if _, err := sb.WriteString(fmt.Sprintf("/%s", o.DBName)); err != nil {
 		return sb.String(), err
 	}
 
@@ -293,4 +364,47 @@ func (opts *Options) getPostgresDataSource(custom string) (string, error) {
 		return sb.String(), err
 	}
 	return sb.String(), nil
+}
+
+func parseDBConnectionString(s string) (*DB, error) {
+
+	// Does not support mysql's tcp()
+	// mysql://username:password@tcp(host:port)/dbname?query
+	// postgres://username:password@host:port/dbname?query
+	// postgresql://username:password@host:port/dbname?query
+	db := &DB{}
+
+	u, err := url.Parse(s)
+	if err != nil {
+		return nil, err
+	}
+
+	// dbsource
+	switch u.Scheme {
+	case "postgresql", "postgres":
+		db.DBSource = DBSource_postgres
+	case "cassandra":
+		db.DBSource = DBSource_cql
+	case "mysql":
+		db.DBSource = DBSource_mysql
+	default:
+		return nil, errors.New("source not supported")
+	}
+
+	// username
+	db.User = u.User.Username()
+	// password
+	if passwd, ok := u.User.Password(); ok {
+		db.Password = passwd
+	}
+	// host
+	db.Hosts = []string{strings.TrimRight(u.Host, ":"+u.Port())}
+
+	// port
+	db.Port = u.Port()
+
+	// dbname
+	db.DBName = strings.Split(strings.TrimLeft(u.Path, "/"), "/")[0]
+
+	return db, nil
 }
