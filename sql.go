@@ -88,6 +88,30 @@ func (o *DB) CQLX() (*gocqlx.Session, error) {
 	return o.cql, nil
 }
 
+func (o *DB) Select(dst interface{}, stmt string, names []string, args interface{}) error {
+	switch o.DBSource {
+	case DBSource_postgres, DBSource_mysql:
+		namedStmt := ToNamedStatement(o.DBSource, stmt, names)
+
+		query, err := o.sql.PrepareNamed(namedStmt)
+		if err != nil {
+			return fmt.Errorf("prepare named: %w", err)
+		}
+		return query.Select(dst, args)
+	case DBSource_cql:
+		var args0 interface{}
+		var args1 map[string]interface{}
+		if val, ok := args.(map[string]interface{}); ok {
+			args1 = val
+		} else {
+			args0 = val
+		}
+		return o.cql.Query(stmt, names).BindStructMap(args0, args1).Get(dst)
+	}
+	return nil
+}
+
+// Deprecated
 func (o *DB) SelectFromMap(dst interface{}, stmt string, names []string, args map[string]interface{}) error {
 	switch o.DBSource {
 	case DBSource_postgres, DBSource_mysql:
@@ -105,22 +129,6 @@ func (o *DB) SelectFromMap(dst interface{}, stmt string, names []string, args ma
 	return nil
 }
 
-func (o *DB) Select(dst interface{}, stmt string, names []string, args interface{}) error {
-	switch o.DBSource {
-	case DBSource_postgres, DBSource_mysql:
-		namedStmt := ToNamedStatement(o.DBSource, stmt, names)
-
-		query, err := o.sql.PrepareNamed(namedStmt)
-		if err != nil {
-			return fmt.Errorf("prepare named: %w", err)
-		}
-		return query.Select(dst, args)
-	case DBSource_cql:
-		return o.cql.Query(stmt, names).BindStruct(args).Select(dst)
-	}
-	return nil
-}
-
 // Returns one document
 func (o *DB) Get(dst interface{}, stmt string, names []string, args interface{}) error {
 	switch o.DBSource {
@@ -131,12 +139,19 @@ func (o *DB) Get(dst interface{}, stmt string, names []string, args interface{})
 		}
 		return query.Get(dst, args)
 	case DBSource_cql:
-		return o.cql.Query(stmt, names).BindStruct(args).Get(dst)
+		var args0 interface{}
+		var args1 map[string]interface{}
+		if val, ok := args.(map[string]interface{}); ok {
+			args1 = val
+		} else {
+			args0 = val
+		}
+		return o.cql.Query(stmt, names).BindStructMap(args0, args1).Get(dst)
 	}
 	return nil
 }
 
-// Returns one document
+// Deprecated
 func (o *DB) GetFromMap(dst interface{}, stmt string, names []string, args map[string]interface{}) error {
 	switch o.DBSource {
 	case DBSource_postgres, DBSource_mysql:
@@ -146,6 +161,7 @@ func (o *DB) GetFromMap(dst interface{}, stmt string, names []string, args map[s
 		}
 		return query.Get(dst, args)
 	case DBSource_cql:
+
 		return o.cql.Query(stmt, names).BindMap(args).Get(dst)
 	}
 	return nil
