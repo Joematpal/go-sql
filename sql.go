@@ -99,14 +99,11 @@ func (o *DB) Select(dst interface{}, stmt string, names []string, args interface
 		}
 		return query.Select(dst, args)
 	case DBSource_cql:
-		var args0 interface{}
-		var args1 map[string]interface{}
 		if val, ok := args.(map[string]interface{}); ok {
-			args1 = val
+			return o.cql.Query(stmt, names).BindMap(val).Get(dst)
 		} else {
-			args0 = val
+			return o.cql.Query(stmt, names).BindStruct(args).Get(dst)
 		}
-		return o.cql.Query(stmt, names).BindStructMap(args0, args1).Get(dst)
 	}
 	return nil
 }
@@ -139,14 +136,11 @@ func (o *DB) Get(dst interface{}, stmt string, names []string, args interface{})
 		}
 		return query.Get(dst, args)
 	case DBSource_cql:
-		var args0 interface{}
-		var args1 map[string]interface{}
 		if val, ok := args.(map[string]interface{}); ok {
-			args1 = val
+			return o.cql.Query(stmt, names).BindMap(val).Get(dst)
 		} else {
-			args0 = val
+			return o.cql.Query(stmt, names).BindStruct(args).Get(dst)
 		}
-		return o.cql.Query(stmt, names).BindStructMap(args0, args1).Get(dst)
 	}
 	return nil
 }
