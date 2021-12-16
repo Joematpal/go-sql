@@ -98,6 +98,14 @@ func (dbc *dbConnections) GetCQLConnection(o *DB) error {
 
 	cluster := gocql.NewCluster(o.Hosts...)
 
+	if o.Timeout != 0 {
+		cluster.Timeout = o.Timeout
+	}
+
+	if o.ConnectTimeout != 0 {
+		cluster.ConnectTimeout = o.ConnectTimeout
+	}
+
 	cluster.Port, err = strconv.Atoi(o.Port)
 	if err != nil {
 		return fmt.Errorf("atoi: %w", err)

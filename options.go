@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/gocql/gocql"
 )
@@ -53,6 +54,14 @@ func (o *DB) applyOption(out *DB) error {
 
 	if out.Consistency != 0 {
 		out.Consistency = o.Consistency
+	}
+
+	if o.Timeout != 0 {
+		out.Timeout = o.Timeout
+	}
+
+	if o.ConnectTimeout != 0 {
+		out.ConnectTimeout = o.ConnectTimeout
 	}
 
 	return nil
@@ -248,6 +257,20 @@ func WithDisableInitialHostLookup() Option {
 func WithCertificateAuthority(path string) Option {
 	return optionApplyFunc(func(d *DB) error {
 		d.CaPath = path
+		return nil
+	})
+}
+
+func WithTimeout(timeout time.Duration) Option {
+	return optionApplyFunc(func(d *DB) error {
+		d.Timeout = timeout
+		return nil
+	})
+}
+
+func WithConnectTimeout(connectTimeout time.Duration) Option {
+	return optionApplyFunc(func(d *DB) error {
+		d.ConnectTimeout = connectTimeout
 		return nil
 	})
 }

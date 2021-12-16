@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/gocql/gocql"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -30,6 +31,9 @@ type DB struct {
 	cql         *gocqlx.Session
 	mapFunc     func(string) string
 	tagMapFunc  func(string) string
+
+	Timeout        time.Duration
+	ConnectTimeout time.Duration
 
 	// CQL
 	Authenticator            gocql.Authenticator `json:"-"`
@@ -316,13 +320,40 @@ func (o *DB) Query(stmt string) (Scanner, error) {
 	return nil, errors.New("no source configured")
 }
 
+type IterWithErr struct {
+	iterx *gocqlx.Iterx
+	err   error
+}
+
+func (iter *IterWithErr) Err() error {
+	if err := iter.iterx.Close(); err != nil {
+		return err
+	}
+	return iter.err
+}
+
+func (iter *IterWithErr) Next() bool {
+	return iter.err == nil
+}
+
+func (iter *IterWithErr) Scan(dest ...interface{}) error {
+	if err := iter.iterx.Get(dest[0]); err != nil {
+		iter.err = err
+		return iter.err
+	}
+
+	return nil
+}
+
 func (o *DB) Queryx(stmt string, names []string, args ...interface{}) (Scanner, error) {
 	if o.cql != nil {
-		query := o.cql.Query(stmt, names)
-		if err := query.ExecRelease(); err != nil {
+		query := o.cql.Query(stmt, names).Bind(args...)
+		if err := query.Exec(); err != nil {
 			return nil, fmt.Errorf("exec release: %v", err)
 		}
-		return query.Iter().Scanner(), query.Exec()
+		iter := query.Iter()
+
+		return &IterWithErr{iter, nil}, nil
 	}
 
 	if o.sql != nil {
