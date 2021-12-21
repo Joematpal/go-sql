@@ -191,7 +191,8 @@ func RunMigrations(o *DB) error {
 		}
 	case DBSource_cql:
 		driver, err = cassandra.WithInstance(o.cql.Session, &cassandra.Config{
-			KeyspaceName: o.DBName,
+			MultiStatementEnabled: true,
+			KeyspaceName:          o.DBName,
 		})
 		if err != nil {
 			return fmt.Errorf("cql instance: %v", err)

@@ -363,6 +363,11 @@ func (o *DB) getPostgresDataSource() (string, error) {
 	if _, err := sb.WriteString(fmt.Sprintf("?sslmode=%s", "disable")); err != nil {
 		return sb.String(), err
 	}
+
+	if _, err := sb.WriteString(fmt.Sprintf("&x-multi-statements=%s", "true")); err != nil {
+		return sb.String(), err
+	}
+
 	return sb.String(), nil
 }
 
