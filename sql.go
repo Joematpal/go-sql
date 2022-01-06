@@ -171,6 +171,30 @@ func (o *DB) Ping() error {
 	return errors.New("no source configured")
 }
 
+// Should be used for testing
+// need to ensure that foreign key constraints are cleared in order
+func (o *DB) DeleteAllRows(tableNames ...string) error {
+	if o.cql != nil {
+		for _, name := range tableNames {
+			query := fmt.Sprintf("truncate %s", name)
+			if err := o.ExecStmt(query); err != nil {
+				return err
+			}
+		}
+	}
+
+	if o.sql != nil {
+		for _, name := range tableNames {
+			query := fmt.Sprintf("delete FROM %s", name)
+			if err := o.ExecStmt(query); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 func (o *DB) DropTables(tableNames ...string) error {
 	for _, name := range tableNames {
 		query := fmt.Sprintf("drop table if exists %s", name)
