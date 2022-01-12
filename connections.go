@@ -141,6 +141,7 @@ func (dbc *dbConnections) GetCQLConnection(o *DB) error {
 
 	// Create keyspace on migration, it should fail if we try to connect to an unmigrated db
 	if o.Migrate && o.AppEnv == development {
+		o.Debugf("creating keyspace name")
 		ts, err := cluster.CreateSession()
 		if err != nil {
 			return fmt.Errorf("create session: %v", err)
@@ -168,6 +169,7 @@ func (dbc *dbConnections) GetCQLConnection(o *DB) error {
 
 	// Run migrations
 	if o.MigratePath != "" && o.Migrate {
+		o.Debugf("running migrations")
 		if err := RunMigrations(o); err != nil {
 			return err
 		}
