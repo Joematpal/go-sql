@@ -84,7 +84,6 @@ func (dbc *dbConnections) GetSQLConnection(o *DB) error {
 func (dbc *dbConnections) GetCQLConnection(o *DB) error {
 	dbc.Lock()
 	defer dbc.Unlock()
-
 	// Check if the connection exists
 	dbSource, err := o.getDataSource()
 	if err != nil {
@@ -101,6 +100,7 @@ func (dbc *dbConnections) GetCQLConnection(o *DB) error {
 	if o.Timeout != 0 {
 		cluster.Timeout = o.Timeout
 	}
+	o.Debugf("get cql connection %s", cluster.Timeout)
 
 	if o.ConnectTimeout != 0 {
 		cluster.ConnectTimeout = o.ConnectTimeout
