@@ -84,7 +84,6 @@ func (dbc *dbConnections) GetSQLConnection(o *DB) error {
 func (dbc *dbConnections) GetCQLConnection(o *DB) error {
 	dbc.Lock()
 	defer dbc.Unlock()
-
 	// Check if the connection exists
 	dbSource, err := o.getDataSource()
 	if err != nil {
@@ -98,12 +97,23 @@ func (dbc *dbConnections) GetCQLConnection(o *DB) error {
 
 	cluster := gocql.NewCluster(o.Hosts...)
 
+	if o.Timeout != 0 {
+		cluster.Timeout = o.Timeout
+	}
+	o.Debugf("cql timeout %s", cluster.Timeout)
+
+	if o.ConnectTimeout != 0 {
+		cluster.ConnectTimeout = o.ConnectTimeout
+	}
+	o.Debugf("cql connection timeout %s", cluster.ConnectTimeout)
+
 	cluster.Port, err = strconv.Atoi(o.Port)
 	if err != nil {
 		return fmt.Errorf("atoi: %w", err)
 	}
 
 	if o.DisableInitialHostLookup {
+		o.Debugf("disable initial host lookup")
 		cluster.DisableInitialHostLookup = true
 	}
 
@@ -131,9 +141,10 @@ func (dbc *dbConnections) GetCQLConnection(o *DB) error {
 
 	// Create keyspace on migration, it should fail if we try to connect to an unmigrated db
 	if o.Migrate && o.AppEnv == development {
+		o.Debugf("creating keyspace name")
 		ts, err := cluster.CreateSession()
 		if err != nil {
-			return err
+			return fmt.Errorf("create session: %v", err)
 		}
 
 		if err := ts.Query(CreateListingsDevKeyspaceStmt(o.DBName)).Exec(); err != nil {
@@ -145,7 +156,7 @@ func (dbc *dbConnections) GetCQLConnection(o *DB) error {
 
 	ts, err := cluster.CreateSession()
 	if err != nil {
-		return err
+		return fmt.Errorf("create session: %v", err)
 	}
 
 	// Wrap session on creation, gocqlx session embeds gocql.Session pointer.
@@ -158,6 +169,7 @@ func (dbc *dbConnections) GetCQLConnection(o *DB) error {
 
 	// Run migrations
 	if o.MigratePath != "" && o.Migrate {
+		o.Debugf("running migrations")
 		if err := RunMigrations(o); err != nil {
 			return err
 		}
