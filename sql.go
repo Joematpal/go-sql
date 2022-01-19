@@ -104,9 +104,9 @@ func (o *DB) Select(dst interface{}, stmt string, names []string, args interface
 		return query.Select(dst, args)
 	case DBSource_cql:
 		if val, ok := args.(map[string]interface{}); ok {
-			return o.cql.Query(stmt, names).BindMap(val).Get(dst)
+			return o.cql.Query(stmt, names).BindMap(val).Select(dst)
 		} else {
-			return o.cql.Query(stmt, names).BindStruct(args).Get(dst)
+			return o.cql.Query(stmt, names).BindStruct(args).Select(dst)
 		}
 	}
 	return nil
