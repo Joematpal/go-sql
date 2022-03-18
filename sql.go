@@ -290,7 +290,7 @@ type BatchOptions struct {
 	BatchType gocql.BatchType
 }
 
-func (bo *BatchOptions) applyOption(in *BatchOptions) error {
+func (in *BatchOptions) applyOption(bo *BatchOptions) error {
 	bo.BatchType = in.BatchType
 	return nil
 }
