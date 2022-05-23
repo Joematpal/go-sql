@@ -81,6 +81,7 @@ func (dbc *dbConnections) GetSQLConnection(o *DB) error {
 	return err
 }
 
+// CQL connection currently does not support query string arguments
 func (dbc *dbConnections) GetCQLConnection(o *DB) error {
 	dbc.Lock()
 	defer dbc.Unlock()
@@ -203,6 +204,8 @@ func RunMigrations(o *DB) error {
 		}
 	case DBSource_cql:
 		driver, err = cassandra.WithInstance(o.cql.Session, &cassandra.Config{
+			// CQL connection currently does not support query string arguments
+			// Manually override the multi statments flag
 			MultiStatementEnabled: true,
 			KeyspaceName:          o.DBName,
 		})
