@@ -275,6 +275,14 @@ func WithConnectTimeout(connectTimeout time.Duration) Option {
 	})
 }
 
+func WithRawQuery(rawQuery string) Option {
+	return optionApplyFunc(func(d *DB) error {
+		d.RawQuery = rawQuery
+		return nil
+	})
+}
+
+// CQL connection currently does not support query string arguments
 func (o *DB) getDataSource() (string, error) {
 
 	switch o.DBSource {
@@ -335,11 +343,18 @@ func (o *DB) getMysqlDataSource() (string, error) {
 	if o.DBName == "" {
 		return sb.String(), errors.New("db dbname cannot be an empty string")
 	}
-	if _, err := sb.WriteString(fmt.Sprintf("/%s", o.DBName)); err != nil {
+	if _, err := sb.WriteString(fmt.Sprintf("/%s?", o.DBName)); err != nil {
 		return sb.String(), err
 	}
-	if _, err := sb.WriteString(fmt.Sprintf("?multiStatements=%s", "true")); err != nil {
+
+	if _, err := sb.WriteString(o.RawQuery); err != nil {
 		return sb.String(), err
+	}
+
+	if !strings.Contains(o.RawQuery, "multiStatements") {
+		if _, err := sb.WriteString("&multiStatements=true"); err != nil {
+			return sb.String(), err
+		}
 	}
 
 	// TODO: Add in the TLS support
@@ -378,17 +393,25 @@ func (o *DB) getPostgresDataSource() (string, error) {
 	if o.DBName == "" {
 		return sb.String(), errors.New("db dbname cannot be an empty string")
 	}
-	if _, err := sb.WriteString(fmt.Sprintf("/%s", o.DBName)); err != nil {
+	if _, err := sb.WriteString(fmt.Sprintf("/%s?", o.DBName)); err != nil {
 		return sb.String(), err
 	}
 
 	// TODO: Add in the TLS support
-	if _, err := sb.WriteString(fmt.Sprintf("?sslmode=%s", "disable")); err != nil {
+	if !strings.Contains(o.RawQuery, "sslmode") {
+		if _, err := sb.WriteString(fmt.Sprintf("sslmode=%s", "disable")); err != nil {
+			return sb.String(), err
+		}
+	}
+
+	if _, err := sb.WriteString(fmt.Sprintf("&%s", o.RawQuery)); err != nil {
 		return sb.String(), err
 	}
 
-	if _, err := sb.WriteString(fmt.Sprintf("&x-multi-statements=%s", "true")); err != nil {
-		return sb.String(), err
+	if !strings.Contains(o.RawQuery, "x-multi-statements") {
+		if _, err := sb.WriteString("&x-multi-statements=true"); err != nil {
+			return sb.String(), err
+		}
 	}
 
 	return sb.String(), nil
@@ -418,6 +441,9 @@ func parseDBConnectionString(s string) (*DB, error) {
 	default:
 		return nil, errors.New("source not supported")
 	}
+
+	// copy over query info
+	db.RawQuery = u.RawQuery
 
 	// username
 	db.User = u.User.Username()

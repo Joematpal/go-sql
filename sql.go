@@ -35,6 +35,8 @@ type DB struct {
 	Timeout        time.Duration
 	ConnectTimeout time.Duration
 
+	RawQuery string `json:"rawQuery"`
+
 	// CQL
 	Authenticator            gocql.Authenticator `json:"-"`
 	DisableInitialHostLookup bool                `json:"disableInitialHostLookup"`
