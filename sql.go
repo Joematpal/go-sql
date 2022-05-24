@@ -305,14 +305,14 @@ type Scanner interface {
 	// Close() error
 }
 
-func (o *DB) Query(stmt string) (Scanner, error) {
+func (o *DB) Query(stmt string, args ...interface{}) (Scanner, error) {
 	if o.cql != nil {
-		query := o.cql.Session.Query(stmt)
+		query := o.cql.Session.Query(stmt, args...)
 		defer query.Release()
 		return query.Iter().Scanner(), query.Exec()
 	}
 	if o.sql != nil {
-		query, err := o.sql.DB.Query(stmt)
+		query, err := o.sql.DB.Query(stmt, args...)
 		if err != nil {
 			return nil, fmt.Errorf("sql query: %v", err)
 		}
