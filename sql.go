@@ -15,6 +15,10 @@ import (
 	"github.com/scylladb/gocqlx/v2"
 )
 
+var (
+	ErrNoSourceConfigured = errors.New("no source configured")
+)
+
 type DB struct {
 	sql         *sqlx.DB
 	AppEnv      string   `json:"appEnv"`
@@ -110,8 +114,10 @@ func (o *DB) Select(dst interface{}, stmt string, names []string, args interface
 		} else {
 			return o.cql.Query(stmt, names).BindStruct(args).Select(dst)
 		}
+	default:
+		return ErrNoSourceConfigured
 	}
-	return nil
+
 }
 
 // Deprecated
@@ -128,8 +134,9 @@ func (o *DB) SelectFromMap(dst interface{}, stmt string, names []string, args ma
 		return query.Select(dst, args)
 	case DBSource_cql:
 		return o.cql.Query(stmt, names).BindMap(args).Select(dst)
+	default:
+		return ErrNoSourceConfigured
 	}
-	return nil
 }
 
 // Returns one document
@@ -147,8 +154,9 @@ func (o *DB) Get(dst interface{}, stmt string, names []string, args interface{})
 		} else {
 			return o.cql.Query(stmt, names).BindStruct(args).Get(dst)
 		}
+	default:
+		return ErrNoSourceConfigured
 	}
-	return nil
 }
 
 // Deprecated
@@ -163,8 +171,9 @@ func (o *DB) GetFromMap(dst interface{}, stmt string, names []string, args map[s
 	case DBSource_cql:
 
 		return o.cql.Query(stmt, names).BindMap(args).Get(dst)
+	default:
+		return ErrNoSourceConfigured
 	}
-	return nil
 }
 
 func (o *DB) Ping() error {
@@ -198,7 +207,7 @@ func (o *DB) DeleteAllRows(tableNames ...string) error {
 		}
 	}
 
-	return nil
+	return ErrNoSourceConfigured
 }
 
 func (o *DB) DropTables(tableNames ...string) error {
@@ -221,7 +230,8 @@ func (o *DB) DropAll() error {
 	}); err != nil {
 		return fmt.Errorf("select: %w", err)
 	}
-	return errors.New("no source configured")
+
+	return ErrNoSourceConfigured
 }
 
 func (o *DB) WriteBatch(queries []string, namesForSrcs [][]string, srcs []interface{}, opts ...BatchOption) error {
@@ -281,7 +291,8 @@ func (o *DB) WriteBatch(queries []string, namesForSrcs [][]string, srcs []interf
 		}
 
 	}
-	return nil
+
+	return ErrNoSourceConfigured
 }
 
 type BatchOption interface {
@@ -297,15 +308,19 @@ func (in *BatchOptions) applyOption(bo *BatchOptions) error {
 	return nil
 }
 
-type Scanner interface {
+type ScannerIterator interface {
 	Next() bool
-	Scan(dest ...interface{}) error
 	Err() error
+	Scanner
 	// TODO: check if close is needed?
 	// Close() error
 }
 
-func (o *DB) Query(stmt string, args ...interface{}) (Scanner, error) {
+type Scanner interface {
+	Scan(dest ...interface{}) error
+}
+
+func (o *DB) Query(stmt string, args ...interface{}) (ScannerIterator, error) {
 	if o.cql != nil {
 		query := o.cql.Session.Query(stmt, args...)
 		defer query.Release()
@@ -320,6 +335,29 @@ func (o *DB) Query(stmt string, args ...interface{}) (Scanner, error) {
 	}
 
 	return nil, errors.New("no source configured")
+}
+
+type emptyScanner func() error
+
+func (es emptyScanner) Scan(dest ...interface{}) error {
+	return es()
+}
+
+func (o *DB) QueryRow(stmt string, args ...interface{}) Scanner {
+	if o.cql != nil {
+		query := o.cql.Session.Query(stmt, args...)
+		query.Scan()
+		defer query.Release()
+		return query
+	}
+
+	if o.sql != nil {
+		row := o.sql.DB.QueryRow(stmt, args...)
+
+		return row
+	}
+
+	return emptyScanner(func() error { return ErrNoSourceConfigured })
 }
 
 type IterWithErr struct {
@@ -347,7 +385,7 @@ func (iter *IterWithErr) Scan(dest ...interface{}) error {
 	return nil
 }
 
-func (o *DB) Queryx(stmt string, names []string, args ...interface{}) (Scanner, error) {
+func (o *DB) Queryx(stmt string, names []string, args ...interface{}) (ScannerIterator, error) {
 	if o.cql != nil {
 		query := o.cql.Query(stmt, names).Bind(args...)
 		if err := query.Exec(); err != nil {
@@ -368,12 +406,11 @@ func (o *DB) Queryx(stmt string, names []string, args ...interface{}) (Scanner, 
 		return query, nil
 	}
 
-	return nil, errors.New("no source configured")
+	return nil, ErrNoSourceConfigured
 }
 
 func (o *DB) ExecStmt(stmt string) error {
 	if o.cql != nil {
-
 		return o.cql.ExecStmt(stmt)
 	}
 
@@ -381,7 +418,7 @@ func (o *DB) ExecStmt(stmt string) error {
 		_, err := o.sql.Exec(stmt)
 		return err
 	}
-	return errors.New("no source configured")
+	return ErrNoSourceConfigured
 }
 
 func (o *DB) Exec(stmt string, names []string, args interface{}) error {
@@ -436,5 +473,5 @@ func (o *DB) ExecMany(stmt string, names []string, args ...interface{}) error {
 		}
 		return query.Close()
 	}
-	return errors.New("no source configured")
+	return ErrNoSourceConfigured
 }

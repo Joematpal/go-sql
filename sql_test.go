@@ -3,11 +3,11 @@ package sql
 import (
 	"testing"
 
-	"github.com/digital-dream-labs/go-sql/v2/table"
-	test_users "github.com/digital-dream-labs/go-sql/v2/test/users"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/joematpal/go-sql/v2/table"
+	test_users "github.com/joematpal/go-sql/v2/test/users"
 	cqlreflectx "github.com/scylladb/go-reflectx"
 	"github.com/scylladb/gocqlx/v2/qb"
 )

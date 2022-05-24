@@ -3,7 +3,7 @@
 ## Getting Started:
 **Installing**
 ```
-go get -u github.com/digital-dream-labs/go-sql@latest
+go get -u github.com/joematpal/go-sql@latest
 ```
 
 **Supported CLI flags**
@@ -22,8 +22,8 @@ go build -tag=postgres main.go
 package main
 
 import (
-    sqlp "github.com/digital-dream-labs/go-sql"
-    sqlf "github.com/digital-dream-labs/go-sql/flags"
+    sqlp "github.com/joematpal/go-sql"
+    sqlf "github.com/joematpal/go-sql/flags"
 )
 
 type DB interface{

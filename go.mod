@@ -1,4 +1,4 @@
-module github.com/digital-dream-labs/go-sql/v2
+module github.com/joematpal/go-sql/v2
 
 go 1.16
 
