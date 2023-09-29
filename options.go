@@ -293,7 +293,7 @@ func (o *DB) getDataSource() (string, error) {
 	case DBSource_postgres:
 		return o.getPostgresDataSource()
 	case DBSource_sqlite:
-		return o.GetMigratePath(), nil
+		return o.getSqliteDataSource()
 	case DBSource_cql:
 		b, err := json.Marshal(o)
 		return string(b), err
@@ -363,6 +363,10 @@ func (o *DB) getMysqlDataSource() (string, error) {
 
 	// TODO: Add in the TLS support
 	return sb.String(), nil
+}
+
+func (o *DB) getSqliteDataSource() (string, error) {
+	return o.DBName, nil
 }
 
 // postgres connection string
