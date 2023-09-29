@@ -476,3 +476,14 @@ func (o *DB) ExecMany(stmt string, names []string, args ...interface{}) error {
 	}
 	return ErrNoSourceConfigured
 }
+
+func (o *DB) Close() error {
+	if o.cql != nil {
+		o.cql.Close()
+		return nil
+	}
+	if o.sql != nil {
+		return o.sql.Close()
+	}
+	return ErrNoSourceConfigured
+}

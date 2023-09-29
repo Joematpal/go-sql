@@ -1,7 +1,6 @@
 package sql
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"strconv"
@@ -55,13 +54,13 @@ func (dbc *dbConnections) GetSQLConnection(o *DB) error {
 		return val.err
 	}
 
+	var db *sqlx.DB
 	// Try to open a connection if it doesn't exist
-	var d *sql.DB
-	d, o.err = sql.Open(o.DBSource.String(), dbSource)
+	db, o.err = sqlx.Open(o.DBSource.String(), dbSource)
 
 	if o.err == nil {
 		// Convert sql to sqlx
-		o.sql = sqlx.NewDb(d, o.DBSource.String())
+		o.sql = db
 
 		o.sql.Mapper = reflectx.NewMapperTagFunc(
 			"json",

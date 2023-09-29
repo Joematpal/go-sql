@@ -290,11 +290,13 @@ func (o *DB) getDataSource() (string, error) {
 		return o.getMysqlDataSource()
 	case DBSource_postgres:
 		return o.getPostgresDataSource()
+	case DBSource_sqlite:
+		return o.GetMigratePath(), nil
 	case DBSource_cql:
 		b, err := json.Marshal(o)
 		return string(b), err
 	default:
-		return "", errors.New("only mysql, postgres and cql are supported")
+		return "", errors.New("only mysql, postgres, sqlite and cql are supported")
 	}
 }
 
