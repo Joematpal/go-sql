@@ -203,7 +203,7 @@ func WithDBSource(dbSource string) Option {
 		case DBSource_cql:
 			o.DBSource = DBSource_cql
 		case DBSource_sqlite:
-			o.DBSource = DBSource_cql
+			o.DBSource = DBSource_sqlite
 		default:
 			return fmt.Errorf("dbsource %s not supported", dbSource)
 		}
