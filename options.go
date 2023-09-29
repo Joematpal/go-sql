@@ -440,6 +440,8 @@ func parseDBConnectionString(s string) (*DB, error) {
 		db.DBSource = DBSource_cql
 	case "mysql":
 		db.DBSource = DBSource_mysql
+	case "sqlite", "sqlite3":
+		db.DBSource = DBSource_sqlite
 	default:
 		return nil, errors.New("source not supported")
 	}
