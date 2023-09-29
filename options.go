@@ -70,7 +70,7 @@ func (o *DB) applyOption(out *DB) error {
 func (o *DB) IsValid() error {
 	// Check if the DBSource is set because that means that the db driver/type is not set
 	switch o.DBSource {
-	case DBSource_postgres, DBSource_mysql:
+	case DBSource_postgres, DBSource_mysql, DBSource_sqlite:
 		// Check if there is already and existing connection
 		if err := dbs.GetSQLConnection(o); err != nil {
 			return fmt.Errorf("sql conn: %v", err)

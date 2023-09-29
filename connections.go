@@ -14,6 +14,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/cassandra"
 	"github.com/golang-migrate/migrate/v4/database/mysql"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/golang-migrate/migrate/v4/database/sqlite"
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/reflectx"
 	cqlreflectx "github.com/scylladb/go-reflectx"
@@ -188,19 +189,26 @@ func RunMigrations(o *DB) error {
 	var err error
 
 	switch o.DBSource {
+	case DBSource_sqlite:
+		driver, err = sqlite.WithInstance(o.sql.DB, &sqlite.Config{
+			DatabaseName: o.DBName,
+		})
+		if err != nil {
+			return fmt.Errorf("sqlite instance: %w", err)
+		}
 	case DBSource_postgres:
 		driver, err = postgres.WithInstance(o.sql.DB, &postgres.Config{
 			DatabaseName: o.DBName,
 		})
 		if err != nil {
-			return fmt.Errorf("postgres instance: %v", err)
+			return fmt.Errorf("postgres instance: %w", err)
 		}
 	case DBSource_mysql:
 		driver, err = mysql.WithInstance(o.sql.DB, &mysql.Config{
 			DatabaseName: o.DBName,
 		})
 		if err != nil {
-			return fmt.Errorf("mysql instance: %v", err)
+			return fmt.Errorf("mysql instance: %w", err)
 		}
 	case DBSource_cql:
 		driver, err = cassandra.WithInstance(o.cql.Session, &cassandra.Config{
@@ -210,7 +218,7 @@ func RunMigrations(o *DB) error {
 			KeyspaceName:          o.DBName,
 		})
 		if err != nil {
-			return fmt.Errorf("cql instance: %v", err)
+			return fmt.Errorf("cql instance: %w", err)
 		}
 	default:
 		return errors.New("db driver not supported")

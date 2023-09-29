@@ -56,6 +56,7 @@ const (
 	DBSource_postgres DBSource = "postgres"
 	DBSource_mysql    DBSource = "mysql"
 	DBSource_cql      DBSource = "cql"
+	DBSource_sqlite   DBSource = "sqlite"
 	production        string   = "production"
 	development       string   = "development"
 )
