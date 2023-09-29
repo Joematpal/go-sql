@@ -84,7 +84,7 @@ func New(in ...Option) (*DB, error) {
 
 func (o *DB) SQLX() (*sqlx.DB, error) {
 	switch o.DBSource {
-	case DBSource_mysql, DBSource_postgres:
+	case DBSource_mysql, DBSource_postgres, DBSource_sqlite:
 		return o.sql, nil
 	}
 
