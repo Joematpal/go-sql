@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"strings"
 	"time"
@@ -36,6 +37,10 @@ func (o *DB) applyOption(out *DB) error {
 
 	if o.MigratePath != "" {
 		out.MigratePath = o.MigratePath
+	}
+
+	if o.MigrateFS != nil {
+		out.MigrateFS = o.MigrateFS
 	}
 
 	if o.Debugger != nil {
@@ -176,6 +181,14 @@ func WithMigrate(migrate bool) Option {
 func WithMigratePath(migratePath string) Option {
 	return optionApplyFunc(func(o *DB) error {
 		o.MigratePath = migratePath
+		return nil
+	})
+}
+
+// WithMigrateFS pass in an embeded fs along with the filepath to MigratePath
+func WithMigrateFS(migrateFS fs.FS) Option {
+	return optionApplyFunc(func(o *DB) error {
+		o.MigrateFS = migrateFS
 		return nil
 	})
 }

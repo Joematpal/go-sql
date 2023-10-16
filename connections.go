@@ -14,6 +14,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/mysql"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/database/sqlite"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/reflectx"
 	cqlreflectx "github.com/scylladb/go-reflectx"
@@ -223,13 +224,31 @@ func RunMigrations(o *DB) error {
 		return errors.New("db driver not supported")
 	}
 
-	m, err := migrate.NewWithDatabaseInstance(
-		o.GetMigratePath(),
-		o.DBName,
-		driver,
-	)
-	if err != nil {
-		return fmt.Errorf("migrations instance: %v", err)
+	var m *migrate.Migrate
+
+	if o.MigrateFS != nil {
+
+		source, err := iofs.New(o.MigrateFS, o.MigratePath)
+		if err != nil {
+			return fmt.Errorf("new fs: %w", err)
+		}
+
+		m, err = migrate.NewWithInstance("iofs", source, o.DBName, driver)
+		if err != nil {
+			return fmt.Errorf("fs instance: %w", err)
+		}
+
+	} else {
+
+		m, err = migrate.NewWithDatabaseInstance(
+			o.GetMigratePath(),
+			o.DBName,
+			driver,
+		)
+		if err != nil {
+			return fmt.Errorf("migrations instance: %v", err)
+		}
+
 	}
 
 	if err := m.Up(); err != nil {

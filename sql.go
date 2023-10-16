@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io/fs"
 	"reflect"
 	"time"
 
@@ -29,6 +30,7 @@ type DB struct {
 	Port        string   `json:"port"`
 	Migrate     bool     `json:"migrate"`
 	MigratePath string   `json:"migratePath"`
+	MigrateFS   fs.FS    `jsone:"-"`
 	DBSource    DBSource `json:"dbSource"`
 	Debugger    Debugger `json:"-"`
 	err         error
