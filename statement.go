@@ -8,9 +8,7 @@ import (
 func ToNamedStatement(dbSource DBSource, stmt string, names []string) string {
 	var r *regexp.Regexp
 	switch dbSource {
-	case DBSource_postgres:
-		r = regexp.MustCompile(`\?|(\$\d)`)
-	case DBSource_mysql:
+	case DBSource_mysql, DBSource_postgres, DBSource_sqlite:
 		r = regexp.MustCompile(`\?|(\$\d)`)
 	}
 	var i int
