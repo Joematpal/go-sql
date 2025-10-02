@@ -368,12 +368,6 @@ func (o *DB) getMysqlDataSource() (string, error) {
 		return sb.String(), err
 	}
 
-	if !strings.Contains(o.RawQuery, "multiStatements") {
-		if _, err := sb.WriteString("&multiStatements=true"); err != nil {
-			return sb.String(), err
-		}
-	}
-
 	// TODO: Add in the TLS support
 	return sb.String(), nil
 }
