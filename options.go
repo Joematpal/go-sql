@@ -423,12 +423,6 @@ func (o *DB) getPostgresDataSource() (string, error) {
 		return sb.String(), err
 	}
 
-	if !strings.Contains(o.RawQuery, "x-multi-statements") {
-		if _, err := sb.WriteString("&x-multi-statements=true"); err != nil {
-			return sb.String(), err
-		}
-	}
-
 	return sb.String(), nil
 }
 
